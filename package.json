@@ -1,0 +1,33 @@
+{
+  "name": "sightglass",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Application observability for developers who don't want an observability stack.",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @sightglass/core && npm run build -w @sightglass/express && npm run build -w @sightglass/nest && npm run build -w @sightglass/next && npm run build -w @sightglass/prisma && npm run build -w @sightglass/dashboard && npm run build -w @sightglass/server",
+    "dev": "npm run dev -w @sightglass/server",
+    "pretest": "npm run build -w @sightglass/core",
+    "test": "vitest run",
+    "pretypecheck": "npm run build -w @sightglass/core",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "start": "npm run start -w @sightglass/server"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "@types/node": "^24.3.1",
+    "eslint": "^9.35.0",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.42.0",
+    "vitest": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}

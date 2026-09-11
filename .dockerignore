@@ -1,0 +1,6 @@
+.git
+node_modules
+.npm-cache
+data
+coverage
+*.md

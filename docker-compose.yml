@@ -1,0 +1,10 @@
+services:
+  sightglass:
+    build: .
+    ports:
+      - "7777:7777"
+    volumes:
+      - sightglass-data:/data
+    restart: unless-stopped
+volumes:
+  sightglass-data:

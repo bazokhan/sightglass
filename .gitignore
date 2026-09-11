@@ -1,0 +1,11 @@
+node_modules/
+dist/
+data/
+*.db
+*.db-shm
+*.db-wal
+.env
+.DS_Store
+coverage/
+.npm-cache/
+.sightglass-spool/

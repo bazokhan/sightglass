@@ -1,10 +1,12 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import { monitorEventLoopDelay } from "node:perf_hooks";
+import { statfsSync } from "node:fs";
+import { freemem, loadavg, totalmem } from "node:os";
 import { boundedAttributes, boundedName, LIMITS, normalizePath } from "./limits.js";
 import { createTrace, traceparent } from "./trace.js";
 import { Transport } from "./transport.js";
-import type { Attributes, DatabaseOperation, DependencyOperation, HealthSample, Occurrence, OperationOptions, SightglassConfig, UsageEvent } from "./types.js";
+import type { Attributes, DatabaseOperation, DependencyOperation, HealthSample, Occurrence, OperationOptions, SightglassConfig } from "./types.js";
 
 export * from "./types.js";
 export { LIMITS, normalizePath } from "./limits.js";
@@ -12,7 +14,6 @@ export { LIMITS, normalizePath } from "./limits.js";
 interface ActiveOperation {
   occurrence: Occurrence;
   startedNs: bigint;
-  meters: UsageEvent[];
 }
 
 const storage = new AsyncLocalStorage<ActiveOperation>();
@@ -20,6 +21,7 @@ let transport: Transport | undefined;
 let settings: (SightglassConfig & { environment: string }) | undefined;
 let originalFetch: typeof globalThis.fetch | undefined;
 let healthTimer: NodeJS.Timeout | undefined;
+let healthHistogram: ReturnType<typeof monitorEventLoopDelay> | undefined;
 
 export function configureSightglass(config: SightglassConfig): void {
   if (!config.service.trim()) throw new TypeError("Sightglass service is required");
@@ -32,16 +34,20 @@ export function configureSightglass(config: SightglassConfig): void {
     flushIntervalMs: config.flushIntervalMs ?? 2_000,
     maxQueueSize: config.maxQueueSize ?? 1_000,
     requestTimeoutMs: config.requestTimeoutMs ?? 3_000,
+    retryBaseMs: config.retryBaseMs ?? 500,
+    retryMaxMs: config.retryMaxMs ?? 60_000,
     meterSpoolDirectory: config.meterSpoolDirectory === undefined ? ".sightglass-spool" : config.meterSpoolDirectory,
   });
   if (config.fetchInstrumentation !== false) installFetchInstrumentation();
   else restoreFetch();
   if (healthTimer) clearInterval(healthTimer);
+  healthHistogram?.disable();
   if (config.healthIntervalMs !== false) startHealth(config.healthIntervalMs ?? 60_000);
 }
 
 export async function shutdownSightglass(): Promise<void> {
   if (healthTimer) clearInterval(healthTimer);
+  healthHistogram?.disable();
   await transport?.close();
   restoreFetch();
 }
@@ -66,7 +72,7 @@ export async function runObserved<T>(name: string, options: OperationOptions, fn
     runtime: runtimeSnapshot(),
     distributed,
   };
-  const active: ActiveOperation = { occurrence, startedNs, meters: [] };
+  const active: ActiveOperation = { occurrence, startedNs };
   try {
     return await storage.run(active, fn);
   } catch (error) {
@@ -76,7 +82,6 @@ export async function runObserved<T>(name: string, options: OperationOptions, fn
   } finally {
     occurrence.durationMs = elapsedMs(startedNs);
     transport.enqueueOccurrence(occurrence);
-    for (const meter of active.meters) transport.enqueueMeter(meter);
   }
 }
 
@@ -118,7 +123,7 @@ export const observe: ObserveApi = Object.assign(
       const safe = boundedAttributes(attributes);
       const unit = settings?.meters?.[name]?.unit;
       active.occurrence.usage.push(id);
-      active.meters.push({ id, occurrenceId: active.occurrence.id, timestamp: new Date().toISOString(), service: active.occurrence.service, environment: active.occurrence.environment, meter: boundedName(name, "meter"), quantity, ...(unit ? { unit } : {}), ...(typeof safe.tenantId === "string" ? { tenantId: safe.tenantId } : {}), attributes: safe });
+      transport?.enqueueMeter({ id, occurrenceId: active.occurrence.id, timestamp: new Date().toISOString(), service: active.occurrence.service, environment: active.occurrence.environment, meter: boundedName(name, "meter"), quantity, ...(unit ? { unit } : {}), ...(typeof safe.tenantId === "string" ? { tenantId: safe.tenantId } : {}), attributes: safe });
       return id;
     },
     async step<T>(name: string, fn: () => T | Promise<T>): Promise<T> {
@@ -191,6 +196,7 @@ function restoreFetch(): void {
 
 function startHealth(interval: number): void {
   const histogram = monitorEventLoopDelay({ resolution: 20 });
+  healthHistogram = histogram;
   histogram.enable();
   let previousCpu = process.cpuUsage();
   let previousAt = process.hrtime.bigint();
@@ -200,7 +206,12 @@ function startHealth(interval: number): void {
     const cpu = process.cpuUsage(previousCpu);
     const elapsedMicros = Number(now - previousAt) / 1_000;
     const memory = process.memoryUsage();
-    const sample: HealthSample = { id: randomUUID(), service: settings.service, environment: settings.environment, timestamp: new Date().toISOString(), cpuPercent: elapsedMicros ? ((cpu.user + cpu.system) / elapsedMicros) * 100 : 0, memoryRssBytes: memory.rss, memoryHeapUsedBytes: memory.heapUsed, eventLoopLagMs: Number(histogram.mean) / 1e6 || 0, uptimeSeconds: process.uptime(), pid: process.pid };
+    let disk: { diskTotalBytes?: number; diskFreeBytes?: number } = {};
+    try {
+      const stats = statfsSync(process.cwd());
+      disk = { diskTotalBytes: Number(stats.blocks) * Number(stats.bsize), diskFreeBytes: Number(stats.bavail) * Number(stats.bsize) };
+    } catch { /* disk telemetry is best effort */ }
+    const sample: HealthSample = { id: randomUUID(), service: settings.service, environment: settings.environment, timestamp: new Date().toISOString(), cpuPercent: elapsedMicros ? ((cpu.user + cpu.system) / elapsedMicros) * 100 : 0, memoryRssBytes: memory.rss, memoryHeapUsedBytes: memory.heapUsed, eventLoopLagMs: Number(histogram.mean) / 1e6 || 0, uptimeSeconds: process.uptime(), pid: process.pid, hostMemoryTotalBytes: totalmem(), hostMemoryFreeBytes: freemem(), hostLoad1m: loadavg()[0] ?? 0, ...disk };
     previousCpu = process.cpuUsage(); previousAt = now; histogram.reset(); transport.enqueueHealth(sample);
   }, interval);
   healthTimer.unref();

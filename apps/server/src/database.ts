@@ -32,7 +32,7 @@ export class Store {
 
   summary(from: string, to: string, service?: string): object {
     const where = service ? "hour >= ? AND hour <= ? AND service = ?" : "hour >= ? AND hour <= ?";
-    const params = service ? [from, to, service] : [from, to];
+    const params = service ? [hour(from), hour(to), service] : [hour(from), hour(to)];
     const rows = this.database.prepare(`SELECT operation, service, SUM(call_count) calls, SUM(error_count) errors, SUM(unauthorized_count) unauthorized, SUM(duration_sum) duration_sum, SUM(db_duration_sum) db_duration_sum, GROUP_CONCAT(latencies_json, '|') latency_groups FROM hourly_aggregates WHERE ${where} GROUP BY operation, service ORDER BY calls DESC`).all(...params) as Row[];
     return rows.map((row) => {
       const latencies = String(row.latency_groups ?? "").split("|").flatMap((group) => safeNumbers(group));
@@ -50,21 +50,28 @@ export class Store {
 
   occurrence(id: string): object | undefined {
     const row = this.database.prepare("SELECT payload_json payload FROM occurrences WHERE id = ?").get(id) as Row | undefined;
-    return row ? JSON.parse(String(row.payload)) as object : undefined;
+    if (!row) return undefined;
+    const occurrence = JSON.parse(String(row.payload)) as Occurrence;
+    return { ...occurrence, distributedOccurrences: this.trace(occurrence.distributed.traceId) };
+  }
+
+  trace(traceId: string): object[] {
+    return (this.database.prepare("SELECT payload_json payload FROM occurrences WHERE trace_id = ? ORDER BY started_at").all(traceId) as Row[])
+      .map((row) => JSON.parse(String(row.payload)) as object);
   }
 
   databaseRanking(from: string, to: string): object[] {
-    return this.database.prepare("SELECT model || '.' || action operation, COUNT(*) calls, ROUND(SUM(duration_ms), 2) totalMs, ROUND(AVG(duration_ms), 2) averageMs, ROUND(MAX(duration_ms), 2) slowestMs FROM database_operations WHERE started_at >= ? AND started_at <= ? GROUP BY model, action ORDER BY totalMs DESC LIMIT 20").all(from, to) as object[];
+    return this.database.prepare("SELECT source_operation sourceOperation, model || '.' || action operation, SUM(call_count) calls, ROUND(SUM(duration_sum), 2) totalMs, ROUND(SUM(duration_sum) / SUM(call_count), 2) averageMs, ROUND(MAX(duration_max), 2) slowestMs FROM hourly_database_aggregates WHERE hour >= ? AND hour <= ? GROUP BY source_operation, model, action ORDER BY totalMs DESC LIMIT 50").all(hour(from), hour(to)) as object[];
   }
 
   dependencyRanking(from: string, to: string): object[] {
-    return this.database.prepare("SELECT host, method, path, COUNT(*) calls, SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) errors, ROUND(AVG(duration_ms), 2) averageMs, ROUND(MAX(duration_ms), 2) slowestMs FROM dependency_operations WHERE started_at >= ? AND started_at <= ? GROUP BY host, method, path ORDER BY calls DESC LIMIT 20").all(from, to) as object[];
+    return this.database.prepare("SELECT source_operation sourceOperation, host, method, path, SUM(call_count) calls, SUM(error_count) errors, ROUND(SUM(duration_sum) / SUM(call_count), 2) averageMs, ROUND(MAX(duration_max), 2) slowestMs FROM hourly_dependency_aggregates WHERE hour >= ? AND hour <= ? GROUP BY source_operation, host, method, path ORDER BY calls DESC LIMIT 50").all(hour(from), hour(to)) as object[];
   }
 
   usage(from: string, to: string, tenantId?: string): object[] {
     const tenant = tenantId ? "AND tenant_id = ?" : "";
-    const params = tenantId ? [from, to, tenantId] : [from, to];
-    return this.database.prepare(`SELECT meter, unit, service, tenant_id tenantId, SUM(quantity) quantity, COUNT(*) events FROM meters WHERE timestamp >= ? AND timestamp <= ? ${tenant} GROUP BY meter, unit, service, tenant_id ORDER BY quantity DESC`).all(...params) as object[];
+    const params = tenantId ? [hour(from), hour(to), tenantId] : [hour(from), hour(to)];
+    return this.database.prepare(`SELECT meter, NULLIF(unit, '') unit, service, NULLIF(tenant_id, '') tenantId, SUM(quantity_sum) quantity, SUM(event_count) events FROM hourly_meter_aggregates WHERE hour >= ? AND hour <= ? ${tenant} GROUP BY meter, unit, service, tenant_id ORDER BY quantity DESC`).all(...params) as object[];
   }
 
   usageRows(from: string, to: string): Row[] {
@@ -72,7 +79,7 @@ export class Store {
   }
 
   health(from: string, to: string): object[] {
-    return this.database.prepare("SELECT service, environment, timestamp, cpu_percent cpuPercent, memory_rss_bytes memoryRssBytes, heap_used_bytes memoryHeapUsedBytes, event_loop_lag_ms eventLoopLagMs, uptime_seconds uptimeSeconds, pid FROM health_samples WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp").all(from, to) as object[];
+    return this.database.prepare("SELECT service, environment, timestamp, cpu_percent cpuPercent, memory_rss_bytes memoryRssBytes, heap_used_bytes memoryHeapUsedBytes, event_loop_lag_ms eventLoopLagMs, uptime_seconds uptimeSeconds, pid, host_memory_total_bytes hostMemoryTotalBytes, host_memory_free_bytes hostMemoryFreeBytes, host_load_1m hostLoad1m, disk_total_bytes diskTotalBytes, disk_free_bytes diskFreeBytes, restart_detected restartDetected FROM health_samples WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp").all(from, to) as object[];
   }
 
   services(): object[] { return this.database.prepare("SELECT service, MAX(started_at) lastSeen FROM occurrences GROUP BY service ORDER BY service").all() as object[]; }
@@ -84,6 +91,9 @@ export class Store {
       this.database.prepare("DELETE FROM occurrences WHERE status = 'success' AND started_at < ?").run(cutoff(successDays));
       this.database.prepare("DELETE FROM occurrences WHERE status = 'error' AND started_at < ?").run(cutoff(errorDays));
       this.database.prepare("DELETE FROM hourly_aggregates WHERE hour < ?").run(cutoff(aggregateDays));
+      this.database.prepare("DELETE FROM hourly_meter_aggregates WHERE hour < ?").run(cutoff(aggregateDays));
+      this.database.prepare("DELETE FROM hourly_database_aggregates WHERE hour < ?").run(cutoff(aggregateDays));
+      this.database.prepare("DELETE FROM hourly_dependency_aggregates WHERE hour < ?").run(cutoff(aggregateDays));
       this.database.prepare("DELETE FROM health_samples WHERE timestamp < ?").run(cutoff(aggregateDays));
       this.database.exec("COMMIT");
     } catch (error) { this.database.exec("ROLLBACK"); throw error; }
@@ -98,6 +108,7 @@ export class Store {
     const dependencyStatement = this.database.prepare("INSERT INTO dependency_operations (id, occurrence_id, operation, service, started_at, host, method, path, duration_ms, status, status_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     for (const item of value.dependencies) dependencyStatement.run(item.id, value.id, value.operation, value.service, value.startedAt, item.host, item.method, item.path, item.durationMs, item.status, item.statusCode ?? null);
     this.upsertAggregate(value);
+    this.upsertChildAggregates(value);
   }
 
   private upsertAggregate(value: Occurrence): void {
@@ -110,14 +121,49 @@ export class Store {
   }
 
   private insertMeter(value: UsageEvent): void {
-    this.database.prepare("INSERT OR IGNORE INTO meters (id, occurrence_id, timestamp, service, environment, tenant_id, meter, unit, quantity, attributes_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(value.id, value.occurrenceId, value.timestamp, value.service, value.environment, value.tenantId ?? null, value.meter, value.unit ?? null, value.quantity, JSON.stringify(value.attributes));
+    const inserted = this.database.prepare("INSERT OR IGNORE INTO meters (id, occurrence_id, timestamp, service, environment, tenant_id, meter, unit, quantity, attributes_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(value.id, value.occurrenceId, value.timestamp, value.service, value.environment, value.tenantId ?? null, value.meter, value.unit ?? null, value.quantity, JSON.stringify(value.attributes));
+    if (!inserted.changes) return;
+    const hour = `${value.timestamp.slice(0, 13)}:00:00.000Z`;
+    this.database.prepare("INSERT INTO hourly_meter_aggregates (hour, service, environment, tenant_id, meter, unit, quantity_sum, event_count) VALUES (?, ?, ?, ?, ?, ?, ?, 1) ON CONFLICT(hour, service, environment, tenant_id, meter, unit) DO UPDATE SET quantity_sum=quantity_sum+excluded.quantity_sum, event_count=event_count+1").run(hour, value.service, value.environment, value.tenantId ?? "", value.meter, value.unit ?? "", value.quantity);
   }
 
   private insertHealth(value: HealthSample): void {
-    this.database.prepare("INSERT OR IGNORE INTO health_samples (id, service, environment, timestamp, cpu_percent, memory_rss_bytes, heap_used_bytes, event_loop_lag_ms, uptime_seconds, pid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(value.id, value.service, value.environment, value.timestamp, value.cpuPercent, value.memoryRssBytes, value.memoryHeapUsedBytes, value.eventLoopLagMs, value.uptimeSeconds, value.pid);
+    const previous = this.database.prepare("SELECT pid, uptime_seconds uptime FROM health_samples WHERE service = ? AND environment = ? ORDER BY timestamp DESC LIMIT 1").get(value.service, value.environment) as Row | undefined;
+    const restarted = previous && (Number(previous.pid) !== value.pid || Number(previous.uptime) > value.uptimeSeconds) ? 1 : 0;
+    this.database.prepare("INSERT OR IGNORE INTO health_samples (id, service, environment, timestamp, cpu_percent, memory_rss_bytes, heap_used_bytes, event_loop_lag_ms, uptime_seconds, pid, host_memory_total_bytes, host_memory_free_bytes, host_load_1m, disk_total_bytes, disk_free_bytes, restart_detected) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(value.id, value.service, value.environment, value.timestamp, value.cpuPercent, value.memoryRssBytes, value.memoryHeapUsedBytes, value.eventLoopLagMs, value.uptimeSeconds, value.pid, value.hostMemoryTotalBytes ?? 0, value.hostMemoryFreeBytes ?? 0, value.hostLoad1m ?? 0, value.diskTotalBytes ?? null, value.diskFreeBytes ?? null, restarted);
+  }
+
+  private upsertChildAggregates(value: Occurrence): void {
+    const hour = `${value.startedAt.slice(0, 13)}:00:00.000Z`;
+    const db = this.database.prepare("INSERT INTO hourly_database_aggregates (hour, service, environment, source_operation, model, action, call_count, error_count, duration_sum, duration_max) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?) ON CONFLICT(hour, service, environment, source_operation, model, action) DO UPDATE SET call_count=call_count+1, error_count=error_count+excluded.error_count, duration_sum=duration_sum+excluded.duration_sum, duration_max=MAX(duration_max, excluded.duration_max)");
+    for (const item of value.database.operations) db.run(hour, value.service, value.environment, value.operation, item.model, item.action, item.status === "error" ? 1 : 0, item.durationMs, item.durationMs);
+    const dependency = this.database.prepare("INSERT INTO hourly_dependency_aggregates (hour, service, environment, source_operation, host, method, path, call_count, error_count, duration_sum, duration_max) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?) ON CONFLICT(hour, service, environment, source_operation, host, method, path) DO UPDATE SET call_count=call_count+1, error_count=error_count+excluded.error_count, duration_sum=duration_sum+excluded.duration_sum, duration_max=MAX(duration_max, excluded.duration_max)");
+    for (const item of value.dependencies) dependency.run(hour, value.service, value.environment, value.operation, item.host, item.method, item.path, item.status === "error" ? 1 : 0, item.durationMs, item.durationMs);
   }
 
   private migrate(): void {
+    this.database.exec("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
+    this.applyMigration(1, () => this.createBaseSchema());
+    this.applyMigration(2, () => this.createAggregateSchema());
+  }
+
+  schemaVersion(): number {
+    const row = this.database.prepare("SELECT COALESCE(MAX(version), 0) version FROM schema_migrations").get() as Row;
+    return Number(row.version);
+  }
+
+  private applyMigration(version: number, migration: () => void): void {
+    const found = this.database.prepare("SELECT 1 found FROM schema_migrations WHERE version = ?").get(version);
+    if (found) return;
+    this.database.exec("BEGIN IMMEDIATE");
+    try {
+      migration();
+      this.database.prepare("INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)").run(version, new Date().toISOString());
+      this.database.exec("COMMIT");
+    } catch (error) { this.database.exec("ROLLBACK"); throw error; }
+  }
+
+  private createBaseSchema(): void {
     this.database.exec(`
       CREATE TABLE IF NOT EXISTS occurrences (id TEXT PRIMARY KEY, operation TEXT NOT NULL, started_at TEXT NOT NULL, duration_ms REAL NOT NULL, status TEXT NOT NULL, service TEXT NOT NULL, environment TEXT NOT NULL, trace_id TEXT NOT NULL, span_id TEXT NOT NULL, parent_id TEXT, context_json TEXT NOT NULL, error_json TEXT, db_duration_ms REAL NOT NULL DEFAULT 0, request_status INTEGER NOT NULL DEFAULT 0, payload_json TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS idx_occurrences_time ON occurrences(started_at DESC);
@@ -139,9 +185,31 @@ export class Store {
       CREATE INDEX IF NOT EXISTS idx_health_samples_service_time ON health_samples(service, timestamp);
     `);
   }
+
+  private createAggregateSchema(): void {
+    const healthColumns = new Set((this.database.prepare("PRAGMA table_info(health_samples)").all() as Row[]).map((row) => String(row.name)));
+    const additions: Array<[string, string]> = [
+      ["host_memory_total_bytes", "INTEGER NOT NULL DEFAULT 0"], ["host_memory_free_bytes", "INTEGER NOT NULL DEFAULT 0"],
+      ["host_load_1m", "REAL NOT NULL DEFAULT 0"], ["disk_total_bytes", "INTEGER"], ["disk_free_bytes", "INTEGER"],
+      ["restart_detected", "INTEGER NOT NULL DEFAULT 0"],
+    ];
+    for (const [column, definition] of additions) if (!healthColumns.has(column)) this.database.exec(`ALTER TABLE health_samples ADD COLUMN ${column} ${definition}`);
+    this.database.exec(`
+      CREATE TABLE IF NOT EXISTS hourly_meter_aggregates (hour TEXT NOT NULL, service TEXT NOT NULL, environment TEXT NOT NULL, tenant_id TEXT NOT NULL, meter TEXT NOT NULL, unit TEXT NOT NULL, quantity_sum REAL NOT NULL, event_count INTEGER NOT NULL, PRIMARY KEY(hour, service, environment, tenant_id, meter, unit));
+      CREATE INDEX IF NOT EXISTS idx_hourly_meter_hour ON hourly_meter_aggregates(hour);
+      CREATE TABLE IF NOT EXISTS hourly_database_aggregates (hour TEXT NOT NULL, service TEXT NOT NULL, environment TEXT NOT NULL, source_operation TEXT NOT NULL, model TEXT NOT NULL, action TEXT NOT NULL, call_count INTEGER NOT NULL, error_count INTEGER NOT NULL, duration_sum REAL NOT NULL, duration_max REAL NOT NULL, PRIMARY KEY(hour, service, environment, source_operation, model, action));
+      CREATE INDEX IF NOT EXISTS idx_hourly_database_hour ON hourly_database_aggregates(hour);
+      CREATE TABLE IF NOT EXISTS hourly_dependency_aggregates (hour TEXT NOT NULL, service TEXT NOT NULL, environment TEXT NOT NULL, source_operation TEXT NOT NULL, host TEXT NOT NULL, method TEXT NOT NULL, path TEXT NOT NULL, call_count INTEGER NOT NULL, error_count INTEGER NOT NULL, duration_sum REAL NOT NULL, duration_max REAL NOT NULL, PRIMARY KEY(hour, service, environment, source_operation, host, method, path));
+      CREATE INDEX IF NOT EXISTS idx_hourly_dependency_hour ON hourly_dependency_aggregates(hour);
+      INSERT OR IGNORE INTO hourly_meter_aggregates SELECT substr(timestamp, 1, 13) || ':00:00.000Z', service, environment, COALESCE(tenant_id, ''), meter, COALESCE(unit, ''), SUM(quantity), COUNT(*) FROM meters GROUP BY 1, service, environment, tenant_id, meter, unit;
+      INSERT OR IGNORE INTO hourly_database_aggregates SELECT substr(started_at, 1, 13) || ':00:00.000Z', service, '', operation, model, action, COUNT(*), SUM(CASE WHEN status='error' THEN 1 ELSE 0 END), SUM(duration_ms), MAX(duration_ms) FROM database_operations GROUP BY 1, service, operation, model, action;
+      INSERT OR IGNORE INTO hourly_dependency_aggregates SELECT substr(started_at, 1, 13) || ':00:00.000Z', service, '', operation, host, method, path, COUNT(*), SUM(CASE WHEN status='error' THEN 1 ELSE 0 END), SUM(duration_ms), MAX(duration_ms) FROM dependency_operations GROUP BY 1, service, operation, host, method, path;
+    `);
+  }
 }
 
 function safeNumbers(json: string): number[] { try { const value = JSON.parse(json); return Array.isArray(value) ? value.filter((item): item is number => typeof item === "number") : []; } catch { return []; } }
+function hour(value: string): string { return `${value.slice(0, 13)}:00:00.000Z`; }
 function ratio(top: number, bottom: number): number { return bottom ? Math.round((top / bottom) * 100) / 100 : 0; }
 function percent(top: number, bottom: number): number { return Math.round(ratio(top, bottom) * 10_000) / 100; }
 function percentile(values: number[], quantile: number): number { if (!values.length) return 0; values.sort((a, b) => a - b); return Math.round((values[Math.ceil(quantile * values.length) - 1] ?? 0) * 100) / 100; }

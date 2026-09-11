@@ -23,6 +23,7 @@ app.get("/api/v1/services", (_request, response) => response.json(store.services
 app.get("/api/v1/summary", (request, response) => { const range = dateRange(request.query); response.json(store.summary(range.from, range.to, text(request.query.service))); });
 app.get("/api/v1/occurrences", (request, response) => { const range = dateRange(request.query); const service = text(request.query.service); const operation = text(request.query.operation); const status = text(request.query.status); response.json(store.occurrences({ ...range, ...(service ? { service } : {}), ...(operation ? { operation } : {}), ...(status ? { status } : {}), limit: clamp(request.query.limit, 1, 200, 50), offset: clamp(request.query.offset, 0, 100_000, 0) })); });
 app.get("/api/v1/occurrences/:id", (request, response) => { const value = store.occurrence(request.params.id); if (value) response.json(value); else response.status(404).json({ error: "not found" }); });
+app.get("/api/v1/traces/:traceId", (request, response) => response.json(store.trace(request.params.traceId)));
 app.get("/api/v1/database", (request, response) => { const range = dateRange(request.query); response.json(store.databaseRanking(range.from, range.to)); });
 app.get("/api/v1/dependencies", (request, response) => { const range = dateRange(request.query); response.json(store.dependencyRanking(range.from, range.to)); });
 app.get("/api/v1/usage", (request, response) => { const range = dateRange(request.query); response.json(store.usage(range.from, range.to, text(request.query.tenantId))); });

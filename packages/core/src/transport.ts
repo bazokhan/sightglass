@@ -8,8 +8,10 @@ export class Transport {
   private readonly health: HealthSample[] = [];
   private timer?: NodeJS.Timeout;
   private sending = false;
+  private retryAttempt = 0;
+  private nextRetryAt = 0;
 
-  constructor(private config: Required<Pick<SightglassConfig, "endpoint" | "batchSize" | "flushIntervalMs" | "maxQueueSize" | "requestTimeoutMs">> & SightglassConfig) {
+  constructor(private config: Required<Pick<SightglassConfig, "endpoint" | "batchSize" | "flushIntervalMs" | "maxQueueSize" | "requestTimeoutMs" | "retryBaseMs" | "retryMaxMs">> & SightglassConfig) {
     this.loadSpool();
     this.timer = setInterval(() => void this.flush(), config.flushIntervalMs);
     this.timer.unref();
@@ -33,8 +35,8 @@ export class Transport {
     void this.flush();
   }
 
-  async flush(): Promise<void> {
-    if (this.sending || (!this.occurrences.length && !this.meters.size && !this.health.length)) return;
+  async flush(force = false): Promise<void> {
+    if (this.sending || (!force && Date.now() < this.nextRetryAt) || (!this.occurrences.length && !this.meters.size && !this.health.length)) return;
     this.sending = true;
     const occurrences = this.occurrences.splice(0, this.config.batchSize);
     const meters = [...this.meters.values()].slice(0, this.config.batchSize);
@@ -55,12 +57,17 @@ export class Transport {
         this.meters.delete(meter.id);
         this.removeSpool(meter.id);
       }
+      this.retryAttempt = 0;
+      this.nextRetryAt = 0;
     } catch {
       this.occurrences.unshift(...occurrences);
       if (this.occurrences.length > this.config.maxQueueSize) {
         this.occurrences.splice(0, this.occurrences.length - this.config.maxQueueSize);
       }
       this.health.unshift(...health);
+      this.retryAttempt += 1;
+      const ceiling = Math.min(this.config.retryMaxMs, this.config.retryBaseMs * 2 ** (this.retryAttempt - 1));
+      this.nextRetryAt = Date.now() + Math.round(ceiling * (0.75 + Math.random() * 0.5));
     } finally {
       this.sending = false;
     }
@@ -68,7 +75,11 @@ export class Transport {
 
   async close(): Promise<void> {
     if (this.timer) clearInterval(this.timer);
-    await this.flush();
+    while (this.sending) await new Promise((resolve) => setTimeout(resolve, 5));
+    while (this.occurrences.length || this.meters.size || this.health.length) {
+      await this.flush(true);
+      if (this.nextRetryAt) break;
+    }
   }
 
   private spool(event: UsageEvent): void {

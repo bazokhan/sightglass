@@ -95,6 +95,11 @@ export interface HealthSample {
   eventLoopLagMs: number;
   uptimeSeconds: number;
   pid: number;
+  hostMemoryTotalBytes?: number;
+  hostMemoryFreeBytes?: number;
+  hostLoad1m?: number;
+  diskTotalBytes?: number;
+  diskFreeBytes?: number;
 }
 
 export interface IngestEnvelope {
@@ -113,6 +118,8 @@ export interface SightglassConfig {
   flushIntervalMs?: number;
   maxQueueSize?: number;
   requestTimeoutMs?: number;
+  retryBaseMs?: number;
+  retryMaxMs?: number;
   meterSpoolDirectory?: string | false;
   fetchInstrumentation?: boolean;
   healthIntervalMs?: number | false;

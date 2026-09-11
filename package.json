@@ -17,6 +17,7 @@
     "pretypecheck": "npm run build -w @sightglass/core",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
+    "benchmark": "tsx scripts/benchmark-ingest.ts",
     "start": "npm run start -w @sightglass/server"
   },
   "devDependencies": {

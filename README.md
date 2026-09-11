@@ -85,11 +85,11 @@ The Client extension uses Prisma's current query-extension API. Inside an observ
 
 ## Configuration
 
-SDK options include service, endpoint, environment, API key, batching bounds, timeouts, meter spool directory, meter units, fetch instrumentation, and health interval. The defaults are deliberately conservative: batches of 25, a 2-second flush, 1,000 queued occurrences, 3-second network timeout, and 60-second health sampling.
+SDK options include service, endpoint, environment, API key, batching bounds, timeouts, retry bounds, meter spool directory, meter units, fetch instrumentation, and health interval. The defaults are deliberately conservative: batches of 25, a 2-second flush, 1,000 queued occurrences, 3-second network timeout, exponential retries from 500 ms to 60 seconds, and 60-second health sampling.
 
 Server environment variables: `SIGHTGLASS_PORT`, `SIGHTGLASS_DATABASE_PATH`, `SIGHTGLASS_API_KEY`, `SIGHTGLASS_SUCCESS_RETENTION_DAYS`, `SIGHTGLASS_ERROR_RETENTION_DAYS`, and `SIGHTGLASS_AGGREGATE_RETENTION_DAYS`.
 
-See [product doctrine](docs/PRODUCT.md), [architecture](docs/ARCHITECTURE.md), and [protocol](docs/PROTOCOL.md).
+See [product doctrine](docs/PRODUCT.md), [architecture](docs/ARCHITECTURE.md), [protocol](docs/PROTOCOL.md), and [performance checks](docs/BENCHMARKS.md).
 
 ## Development
 

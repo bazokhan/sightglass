@@ -10,13 +10,16 @@
 - Hourly aggregates, percentiles, database/dependency rankings, service health history, and scheduled retention.
 - Opinionated responsive React dashboard served by the same process, including seven in-product documentation pages with copyable setup and integration examples.
 - Docker/Compose single-container deployment and realistic Express example.
-- Unit/integration tests, strict type checking, linting, production build, live ingestion/dashboard smoke test, and built/running container smoke test.
+- Billing-grade durability at the instant `observe.meter()` is called, plus capped exponential retry with jitter and outage recovery coverage.
+- Ordered SQLite migrations with legacy upgrade coverage and aggregate-backed operation, usage, database, and dependency queries.
+- Reconstructed distributed operation trees in both the API and occurrence drawer.
+- Process and host health with restart detection, strict nested ingestion validation, framework integration tests, and a repeatable ingestion benchmark.
 
 ## Commands to run
 
 - Local: `npm install && npm run build && npm start`
 - Example app: `npm run dev -w @sightglass/example`
-- Verification: `npm test && npm run typecheck && npm run lint && npm run build`
+- Verification: `npm test && npm run typecheck && npm run lint && npm run build && npm run benchmark`
 - Container: `docker compose up --build`
 
 ## Known issues

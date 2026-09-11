@@ -30,7 +30,7 @@ function isPrimitive(value: unknown): value is Primitive {
 }
 
 const uuidSegment = /\b[0-9a-f]{8}-[0-9a-f-]{27,}\b/gi;
-const longIdentifier = /\b(?:\d{5,}|[0-9a-f]{16,})\b/gi;
+const longIdentifier = /\b(?:\d+|[0-9a-f]{16,})\b/gi;
 
 export function normalizePath(pathname: string): string {
   return pathname.split("?")[0]!.replace(uuidSegment, ":id").replace(longIdentifier, ":id").slice(0, 512);

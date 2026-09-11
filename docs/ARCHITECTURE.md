@@ -10,12 +10,12 @@ Sightglass is an npm-workspaces monorepo.
 
 ## Data flow
 
-An explicit adapter opens an AsyncLocalStorage context. Enrichment APIs append bounded data to that occurrence. Completion queues an occurrence and its meter ledger entries. The transport batches ordinary occurrences with bounded memory and retries; meters are additionally written to a local spool before delivery and removed only after an acknowledged idempotent ingest. The server validates versioned payloads, writes occurrences and meters transactionally, and upserts hourly aggregates.
+An explicit adapter opens an AsyncLocalStorage context. Enrichment APIs append bounded data to that occurrence. `observe.meter()` writes its ledger entry to a local spool before returning, so a process failure before operation completion does not lose usage. Completion queues the occurrence. The transport batches delivery with exponential backoff and jitter; spooled meters are removed only after an acknowledged idempotent ingest. The server strictly validates nested versioned payloads, writes them transactionally, and upserts hourly operation, usage, database, and dependency aggregates.
 
 SQLite is the only persistence dependency. Occurrence JSON remains compact and supports detailed inspection; selected columns and aggregate tables provide indexed dashboard queries. Meter event IDs are primary keys, making ingestion retries safe.
 
-Distributed correlation uses valid W3C `traceparent` headers. Fetch propagates trace identity while active. An explicitly observed downstream route accepts the parent header and creates a child occurrence; propagation never activates storage on its own.
+Distributed correlation uses valid W3C `traceparent` headers. Fetch propagates trace identity while active. An explicitly observed downstream route accepts the parent header and creates a child occurrence; propagation never activates storage on its own. Stored trace relationships are reconstructed into a cross-service operation tree in occurrence detail and through `GET /api/v1/traces/:traceId`.
 
 ## API protocol
 
-`POST /api/v1/ingest` accepts `{ occurrences, meters, health }` and returns accepted counts. Payloads are capped at 1 MiB and schema-validated. Dashboard endpoints live below `/api/v1`, including operation summaries/details, usage totals/export, dependency/database rankings, and service health.
+`POST /api/v1/ingest` accepts `{ occurrences, meters, health }` and returns accepted counts. Payloads are capped at 1 MiB and schema-validated. Ordered migrations are recorded in `schema_migrations`; upgrades backfill the aggregate schema without discarding raw data. Dashboard endpoints live below `/api/v1`, including operation summaries/details and traces, usage totals/export, dependency/database rankings, and process/host health.

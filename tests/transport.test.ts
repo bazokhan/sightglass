@@ -1,4 +1,4 @@
-import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -23,5 +23,14 @@ describe("reliable transport", () => {
     expect(attempts).toBe(2);
     expect(readdirSync(directory)).toHaveLength(0);
     await transport.close(); rmSync(directory, { recursive: true, force: true });
+  });
+
+  it("recovers valid ledger files even when another spool entry is corrupt", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "sightglass-recovery-"));
+    const meter: UsageEvent = { id: "valid", occurrenceId: "operation", timestamp: new Date().toISOString(), service: "test", environment: "test", meter: "units", quantity: 1, attributes: {} };
+    writeFileSync(join(directory, "broken.json"), "{"); writeFileSync(join(directory, "valid.json"), JSON.stringify(meter));
+    globalThis.fetch = (async () => new Response(null, { status: 202 })) as typeof fetch;
+    const transport = new Transport({ service: "test", endpoint: "http://collector", batchSize: 100, flushIntervalMs: 60_000, maxQueueSize: 100, requestTimeoutMs: 100, retryBaseMs: 1, retryMaxMs: 2, meterSpoolDirectory: directory });
+    await transport.close(); expect(readdirSync(directory)).toEqual(["broken.json"]); rmSync(directory, { recursive: true, force: true });
   });
 });

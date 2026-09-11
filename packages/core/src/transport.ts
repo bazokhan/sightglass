@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, fsyncSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { HealthSample, IngestEnvelope, Occurrence, SightglassConfig, UsageEvent } from "./types.js";
 
@@ -84,10 +84,21 @@ export class Transport {
 
   private spool(event: UsageEvent): void {
     if (!this.config.meterSpoolDirectory) return;
+    const finalPath = join(this.config.meterSpoolDirectory, `${event.id}.json`);
+    const temporaryPath = join(this.config.meterSpoolDirectory, `${event.id}.${process.pid}.tmp`);
+    let descriptor: number | undefined;
     try {
       mkdirSync(this.config.meterSpoolDirectory, { recursive: true });
-      writeFileSync(join(this.config.meterSpoolDirectory, `${event.id}.json`), JSON.stringify(event), { flag: "wx", mode: 0o600 });
-    } catch { /* host application must never fail because telemetry did */ }
+      descriptor = openSync(temporaryPath, "wx", 0o600);
+      writeFileSync(descriptor, JSON.stringify(event));
+      fsyncSync(descriptor);
+      closeSync(descriptor); descriptor = undefined;
+      renameSync(temporaryPath, finalPath);
+    } catch {
+      if (descriptor !== undefined) try { closeSync(descriptor); } catch { /* already closed */ }
+      try { unlinkSync(temporaryPath); } catch { /* no partial file */ }
+      /* host application must never fail because telemetry did */
+    }
   }
 
   private loadSpool(): void {
@@ -95,8 +106,10 @@ export class Transport {
     try {
       mkdirSync(this.config.meterSpoolDirectory, { recursive: true });
       for (const file of readdirSync(this.config.meterSpoolDirectory).filter((name) => name.endsWith(".json")).slice(0, 10_000)) {
-        const event = JSON.parse(readFileSync(join(this.config.meterSpoolDirectory, file), "utf8")) as UsageEvent;
-        this.meters.set(event.id, event);
+        try {
+          const event = JSON.parse(readFileSync(join(this.config.meterSpoolDirectory, file), "utf8")) as UsageEvent;
+          if (event.id && event.id === file.slice(0, -5)) this.meters.set(event.id, event);
+        } catch { /* one corrupt entry must not block recovery of valid entries */ }
       }
     } catch { /* an unreadable spool degrades to in-memory delivery */ }
   }

@@ -10,13 +10,13 @@
 
 ## Complete
 
-- Product doctrine, architecture, protocol, and developer documentation.
+- Product doctrine, architecture, protocol, benchmark, comparison, and developer documentation.
 - AsyncLocalStorage SDK with bounded context, events, steps, durable meters, error capture, fetch enrichment, runtime health, batching, retries, and W3C correlation.
 - Express/tsoa, NestJS, Next.js Route Handler, and Prisma integrations.
 - Versioned/validated HTTP ingestion and one-file SQLite WAL persistence.
 - Idempotent usage ledger with CSV/JSON export.
 - Hourly aggregates, percentiles, database/dependency rankings, service health history, and scheduled retention.
-- Opinionated responsive React dashboard served by the same process, including nine in-product documentation pages with copyable setup, API, and operations guidance.
+- Opinionated responsive React dashboard served by the same process, including eleven in-product documentation pages with setup, API, benchmark, comparison, and operations guidance.
 - Docker/Compose single-container deployment and realistic Express example.
 - Billing-grade durability at the instant `observe.meter()` is called, plus capped exponential retry with jitter and outage recovery coverage.
 - Ordered SQLite migrations with legacy upgrade coverage and aggregate-backed operation, usage, database, and dependency queries.
@@ -27,7 +27,7 @@
 - Distributed operation trees containing correlated services and each service's database/dependency children.
 - Express, tsoa, NestJS, Next.js, Prisma, HTTP server, documentation, retention, migration, and outage integration coverage.
 - Publishable SDK tarballs with a clean-project installation check.
-- Nine in-product documentation pages plus API and production operations references covering installation, configuration, security, backup, upgrades, and recovery.
+- Eleven in-product documentation pages plus API, benchmark, comparison, and production operations references covering installation, configuration, evidence, security, backup, upgrades, and recovery.
 
 ## Commands to run
 

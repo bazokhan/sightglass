@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { benchmarkResults } from "./benchmark-results";
 
-type DocId = "start" | "concepts" | "express" | "nest" | "next" | "prisma" | "api" | "operate" | "production";
+type DocId = "start" | "concepts" | "express" | "nest" | "next" | "prisma" | "api" | "benchmarks" | "compare" | "operate" | "production";
 
 const pages: Array<{ id: DocId; label: string; eyebrow: string }> = [
   { id: "start", label: "Start here", eyebrow: "5 minute setup" },
@@ -10,6 +11,8 @@ const pages: Array<{ id: DocId; label: string; eyebrow: string }> = [
   { id: "next", label: "Next.js", eyebrow: "Route handlers" },
   { id: "prisma", label: "Prisma & fetch", eyebrow: "Automatic detail" },
   { id: "api", label: "API & exports", eyebrow: "Integrations" },
+  { id: "benchmarks", label: "Benchmarks", eyebrow: "Measured locally" },
+  { id: "compare", label: "Compare", eyebrow: "10 alternatives" },
   { id: "operate", label: "Run & configure", eyebrow: "Deployment" },
   { id: "production", label: "Production", eyebrow: "Security & recovery" },
 ];
@@ -132,6 +135,9 @@ const prisma = withSightglass(new PrismaClient());`} />
 GET /api/v1/usage/export?format=json&from=2026-01-01T00:00:00.000Z`} />
   </>;
 
+  if (page === "benchmarks") return <BenchmarkPage />;
+  if (page === "compare") return <ComparisonPage />;
+
   if (page === "operate") return <>
     <DocHeading kicker="Run & configure" title="One process, one volume" summary="Sightglass is designed to remain boring to operate: one port, one SQLite file, and configurable retention." />
     <h2>Docker</h2><CodeBlock code={`docker compose up --build
@@ -174,6 +180,59 @@ function NumberedStep({ number, title, children }: { number: string; title: stri
 function ApiItem({ signature, description, code }: { signature: string; description: string; code?: string }) { return <section className="api-item"><h2><code>{signature}</code></h2><p>{description}</p>{code ? <CodeBlock code={code} /> : null}</section>; }
 function Callout({ title, children }: { title: string; children: React.ReactNode }) { return <aside className="doc-callout"><strong>{title}</strong><p>{children}</p></aside>; }
 function DefinitionGrid({ items }: { items: string[][] }) { return <dl className="definition-grid">{items.map(([term, detail]) => <div key={term}><dt>{term}</dt><dd>{detail}</dd></div>)}</dl>; }
+
+function BenchmarkPage() {
+  const result = benchmarkResults;
+  return <>
+    <DocHeading kicker="Benchmarks" title="Measured, not promised" summary="Deterministic fixtures, excluded warmups, repeated samples, raw data, and machine metadata make these results auditable and reproducible." />
+    <BenchmarkChart title="Ingestion throughput" subtitle="Median of five 10,000-record iterations; higher is better" items={result.throughput.map((item) => ({ label: item.label, value: item.statistics.median, suffix: item.unit }))} />
+    <BenchmarkChart title="Dashboard query latency" subtitle="p95 across 30 warm-cache samples over 25,000 rich occurrences; lower is better" items={result.queryLatency.map((item) => ({ label: item.label, value: item.statistics.p95, suffix: "ms" }))} />
+    <div className="benchmark-facts"><MetricFact value={`${Math.round(result.storage.bytesPerRichOccurrence).toLocaleString()} B`} label="SQLite bytes / rich operation" /><MetricFact value={`${result.storage.jsonPayloadBytesPerOccurrence.toLocaleString()} B`} label="JSON bytes / operation + meter" /><MetricFact value={`${result.environment.logicalCpus}`} label="Logical CPUs" /><MetricFact value={result.environment.node} label="Node.js" /></div>
+    <h2>Reproduce it</h2><CodeBlock code={`npm ci
+npm run benchmark`} />
+    <p>The command builds the real server, creates isolated temporary databases, runs the complete suite, and replaces the checked-in raw JSON and SVG charts. Override counts with <code>SIGHTGLASS_BENCHMARK_COUNT</code>, <code>SIGHTGLASS_BENCHMARK_ITERATIONS</code>, <code>SIGHTGLASS_BENCHMARK_QUERY_COUNT</code>, and <code>SIGHTGLASS_BENCHMARK_QUERY_ITERATIONS</code>.</p>
+    <Callout title="Interpretation boundary">These figures describe this commit on the recorded machine, not guaranteed production capacity. HTTP measurements include serialization, parsing, validation, routing, and WAL persistence. They exclude client networking because the server is reached through loopback.</Callout>
+    <p className="doc-meta">Captured {new Date(result.generatedAt).toLocaleString()} · {result.environment.cpu} · {result.environment.platform} {result.environment.architecture}</p>
+  </>;
+}
+
+type ChartDatum = { label: string; value: number; suffix: string };
+function BenchmarkChart({ title, subtitle, items }: { title: string; subtitle: string; items: readonly ChartDatum[] }) {
+  const maximum = Math.max(...items.map((item) => item.value));
+  return <section className="benchmark-chart"><div><h2>{title}</h2><p>{subtitle}</p></div>{items.map((item) => <div className="benchmark-row" key={item.label}><span>{item.label}</span><i><b style={{ width: `${Math.max(2, item.value / maximum * 100)}%` }} /></i><strong>{formatBenchmark(item.value)} <small>{item.suffix}</small></strong></div>)}</section>;
+}
+function formatBenchmark(value: number): string { return value >= 100 ? Math.round(value).toLocaleString() : value.toFixed(value < 1 ? 3 : 2); }
+function MetricFact({ value, label }: { value: string; label: string }) { return <div><strong>{value}</strong><span>{label}</span></div>; }
+
+type FeatureValue = "yes" | "partial" | "no";
+type ComparisonProduct = { name: string; deployment: string; pricing: string; oss: FeatureValue; optIn: FeatureValue; events: FeatureValue; ledger: FeatureValue; traces: FeatureValue; db: FeatureValue; health: FeatureValue; oneContainer: FeatureValue; noCollector: FeatureValue; source: string };
+const comparisonProducts: ComparisonProduct[] = [
+  { name: "Sightglass", deployment: "Self-host · 1 container", pricing: "Free; infrastructure only", oss: "yes", optIn: "yes", events: "yes", ledger: "yes", traces: "yes", db: "yes", health: "yes", oneContainer: "yes", noCollector: "yes", source: "https://github.com/bazokhan/sightglass" },
+  { name: "Datadog APM", deployment: "SaaS + host agent", pricing: "From $31/host/mo annual", oss: "no", optIn: "no", events: "yes", ledger: "no", traces: "yes", db: "yes", health: "yes", oneContainer: "no", noCollector: "no", source: "https://www.datadoghq.com/pricing/?product=apm" },
+  { name: "New Relic", deployment: "SaaS + app/host agents", pricing: "Free tier; $0.40/GB + access", oss: "no", optIn: "no", events: "yes", ledger: "no", traces: "yes", db: "yes", health: "yes", oneContainer: "no", noCollector: "partial", source: "https://newrelic.com/pricing" },
+  { name: "Honeycomb", deployment: "SaaS · SDK/OTel", pricing: "Free; Pro from $150/mo", oss: "no", optIn: "partial", events: "yes", ledger: "no", traces: "yes", db: "partial", health: "partial", oneContainer: "no", noCollector: "yes", source: "https://www.honeycomb.io/pricing" },
+  { name: "Grafana", deployment: "Cloud or self-host stack", pricing: "OSS free; Cloud $19 + usage", oss: "yes", optIn: "no", events: "partial", ledger: "no", traces: "yes", db: "partial", health: "yes", oneContainer: "no", noCollector: "no", source: "https://grafana.com/pricing/" },
+  { name: "Sentry", deployment: "SaaS or self-host stack", pricing: "Free; Team $26/mo", oss: "no", optIn: "partial", events: "partial", ledger: "no", traces: "yes", db: "yes", health: "partial", oneContainer: "no", noCollector: "yes", source: "https://sentry.io/pricing/" },
+  { name: "Dynatrace", deployment: "SaaS or Managed + OneAgent", pricing: "$58/8-GiB host/mo", oss: "no", optIn: "no", events: "yes", ledger: "no", traces: "yes", db: "yes", health: "yes", oneContainer: "no", noCollector: "no", source: "https://www.dynatrace.com/pricing/" },
+  { name: "SigNoz", deployment: "Cloud or self-host stack", pricing: "Community free; Cloud $49/mo", oss: "yes", optIn: "no", events: "partial", ledger: "no", traces: "yes", db: "yes", health: "yes", oneContainer: "no", noCollector: "no", source: "https://signoz.io/pricing/" },
+  { name: "Better Stack", deployment: "SaaS + optional collector", pricing: "Free; bundles from $25/mo annual", oss: "no", optIn: "no", events: "partial", ledger: "no", traces: "yes", db: "yes", health: "yes", oneContainer: "no", noCollector: "partial", source: "https://betterstack.com/pricing" },
+  { name: "Elastic Observability", deployment: "Cloud or self-host stack", pricing: "Self-host free; Cloud usage-priced", oss: "yes", optIn: "no", events: "yes", ledger: "no", traces: "yes", db: "yes", health: "yes", oneContainer: "no", noCollector: "no", source: "https://www.elastic.co/pricing/" },
+  { name: "Uptrace", deployment: "Cloud or self-host stack", pricing: "Community free; 50 GB Cloud free", oss: "yes", optIn: "partial", events: "partial", ledger: "no", traces: "yes", db: "yes", health: "yes", oneContainer: "no", noCollector: "yes", source: "https://uptrace.dev/pricing" },
+];
+
+function ComparisonPage() {
+  const features: Array<[keyof ComparisonProduct, string]> = [["oss", "OSS"], ["optIn", "Opt-in"], ["events", "Events"], ["ledger", "Ledger"], ["traces", "Traces"], ["db", "DB/deps"], ["health", "Health"], ["oneContainer", "1 ctr"], ["noCollector", "No daemon"]];
+  return <>
+    <DocHeading kicker="Market comparison" title="Small by design" summary="Sightglass trades fleet-scale breadth for an explicit operation model, exact usage accounting, and a deployment that stays one container." />
+    <div className="comparison-legend"><span><FeatureIcon value="yes" /> native</span><span><FeatureIcon value="partial" /> partial / configurable</span><span><FeatureIcon value="no" /> absent / not core</span></div>
+    <div className="comparison-wrap"><table className="comparison-table"><thead><tr><th>Product</th>{features.map(([, label]) => <th title={featureTitle(label)} key={label}>{label}</th>)}<th className="comparison-meta">Deployment</th><th className="comparison-meta">Public starting price</th></tr></thead><tbody>{comparisonProducts.map((product) => <tr className={product.name === "Sightglass" ? "ours" : ""} key={product.name}><td><a href={product.source} target="_blank" rel="noreferrer">{product.name}</a></td>{features.map(([key, label]) => <td className="feature-cell" aria-label={`${label}: ${product[key]}`} key={key}><FeatureIcon value={product[key] as FeatureValue} /></td>)}<td className="comparison-meta">{product.deployment}</td><td className="comparison-meta">{product.pricing}</td></tr>)}</tbody></table></div>
+    <p className="doc-meta">Checked 12 September 2026 against vendors' official public pricing, deployment, and licensing material. Prices are USD list prices where available, exclude infrastructure and negotiated discounts, and can change.</p>
+    <h2>What the icons mean</h2><p><strong>Opt-in</strong> means unselected application routes remain silent by product doctrine. <strong>Ledger</strong> means an exact, idempotent, exportable business-usage ledger—not ordinary custom metrics. <strong>1 ctr</strong> means the complete server, storage, API, and UI run in one container. <strong>No daemon</strong> means application telemetry can be delivered without a host-level agent or collector.</p>
+    <Callout title="A focused comparison">This is not a claim that Sightglass has greater total breadth. The larger platforms add logs, RUM, synthetics, alerting, security, AI, and enterprise controls. This table focuses on the application-observability job Sightglass was designed to do.</Callout>
+  </>;
+}
+function FeatureIcon({ value }: { value: FeatureValue }) { return <span className={`feature-icon ${value}`} aria-hidden="true">{value === "yes" ? "✓" : value === "partial" ? "◐" : "×"}</span>; }
+function featureTitle(label: string): string { return ({ OSS: "Open-source product core", "Opt-in": "Strict explicit-operation model", Events: "Semantic application events", Ledger: "Exact idempotent usage ledger", Traces: "Distributed tracing", "DB/deps": "Database and outbound dependency detail", Health: "Application/runtime health", "1 ctr": "Complete one-container deployment", "No daemon": "No required host daemon or collector" } as Record<string, string>)[label] ?? label; }
 
 function CodeBlock({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);

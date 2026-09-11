@@ -4,6 +4,8 @@
 
 Sightglass is an opt-in observability tool for Node.js applications. Nothing is collected when you install it. You explicitly mark important operations—checkout, report generation, payments, background jobs—and Sightglass records one compact, useful occurrence with its business context, meaningful events, database work, outbound calls, errors, and exact usage.
 
+See the [reproducible benchmarks](docs/BENCHMARKS.md) and [focused comparison with 10 alternatives](docs/COMPARISON.md).
+
 ## Run Sightglass
 
 ```bash
@@ -101,7 +103,7 @@ Server environment variables: `SIGHTGLASS_PORT`, `SIGHTGLASS_DATABASE_PATH`, `SI
 
 `SIGHTGLASS_API_KEY` authenticates ingestion, not dashboard reads. Bind or expose Sightglass only on a trusted private network, or place it behind an authenticating reverse proxy. See [operations](docs/OPERATIONS.md) before production deployment.
 
-See [product doctrine](docs/PRODUCT.md), [architecture](docs/ARCHITECTURE.md), [API reference](docs/API.md), [operations](docs/OPERATIONS.md), [protocol](docs/PROTOCOL.md), and [performance checks](docs/BENCHMARKS.md).
+See [product doctrine](docs/PRODUCT.md), [architecture](docs/ARCHITECTURE.md), [API reference](docs/API.md), [operations](docs/OPERATIONS.md), [protocol](docs/PROTOCOL.md), [reproducible benchmarks](docs/BENCHMARKS.md), and the [focused market comparison](docs/COMPARISON.md).
 
 ## Development
 

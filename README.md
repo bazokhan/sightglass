@@ -20,6 +20,16 @@ npm run build
 npm start
 ```
 
+## Install the SDK
+
+Registry installation, once the packages are published:
+
+```bash
+npm install @sightglass/core @sightglass/express
+```
+
+For a source checkout or private release, run `npm run build && npm run pack:sdk`. Install the required `.tgz` files from `dist-packages/` into the application. Choose only the framework adapter the application uses; every adapter depends on `@sightglass/core`.
+
 ## Express
 
 ```ts
@@ -89,7 +99,9 @@ SDK options include service, endpoint, environment, API key, batching bounds, ti
 
 Server environment variables: `SIGHTGLASS_PORT`, `SIGHTGLASS_DATABASE_PATH`, `SIGHTGLASS_API_KEY`, `SIGHTGLASS_SUCCESS_RETENTION_DAYS`, `SIGHTGLASS_ERROR_RETENTION_DAYS`, and `SIGHTGLASS_AGGREGATE_RETENTION_DAYS`.
 
-See [product doctrine](docs/PRODUCT.md), [architecture](docs/ARCHITECTURE.md), [protocol](docs/PROTOCOL.md), and [performance checks](docs/BENCHMARKS.md).
+`SIGHTGLASS_API_KEY` authenticates ingestion, not dashboard reads. Bind or expose Sightglass only on a trusted private network, or place it behind an authenticating reverse proxy. See [operations](docs/OPERATIONS.md) before production deployment.
+
+See [product doctrine](docs/PRODUCT.md), [architecture](docs/ARCHITECTURE.md), [API reference](docs/API.md), [operations](docs/OPERATIONS.md), [protocol](docs/PROTOCOL.md), and [performance checks](docs/BENCHMARKS.md).
 
 ## Development
 

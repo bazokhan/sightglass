@@ -10,7 +10,7 @@ Sightglass is an npm-workspaces monorepo.
 
 ## Data flow
 
-An explicit adapter opens an AsyncLocalStorage context. Enrichment APIs append bounded data to that occurrence. `observe.meter()` writes its ledger entry to a local spool before returning, so a process failure before operation completion does not lose usage. Completion queues the occurrence. The transport batches delivery with exponential backoff and jitter; spooled meters are removed only after an acknowledged idempotent ingest. The server strictly validates nested versioned payloads, writes them transactionally, and upserts hourly operation, usage, database, and dependency aggregates.
+An explicit adapter opens an AsyncLocalStorage context. Enrichment APIs append bounded data to that occurrence. `observe.meter()` writes its ledger entry to a local spool before returning, so a process failure before operation completion does not lose usage. Completion queues the occurrence. The transport pages any disk backlog through bounded memory, batches delivery with exponential backoff and jitter, and removes spooled meters only after an acknowledged idempotent ingest. A diagnostic callback reports degraded durability without crashing application work. The server strictly validates nested versioned payloads, writes them transactionally, and upserts hourly operation, usage, database, and dependency aggregates.
 
 SQLite is the only persistence dependency. Occurrence JSON remains compact and supports detailed inspection; selected columns and aggregate tables provide indexed dashboard queries. Meter event IDs are primary keys, making ingestion retries safe.
 

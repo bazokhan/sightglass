@@ -2,7 +2,7 @@ export type Summary = { operation: string; service: string; calls: number; error
 export type OccurrenceRow = { id: string; operation: string; startedAt: string; durationMs: number; status: "success" | "error"; service: string; environment: string; traceId: string; context: Record<string, unknown>; error?: { message: string } };
 export type Ranking = Record<string, string | number | null>;
 export type Usage = { meter: string; unit: string | null; service: string; tenantId: string | null; quantity: number; events: number };
-export type Health = { service: string; environment: string; timestamp: string; cpuPercent: number; memoryRssBytes: number; memoryHeapUsedBytes: number; eventLoopLagMs: number; uptimeSeconds: number; pid: number; hostMemoryTotalBytes?: number; hostMemoryFreeBytes?: number; hostLoad1m?: number; diskTotalBytes?: number; diskFreeBytes?: number; restartDetected?: number };
+export type Health = { service: string; environment: string; timestamp: string; cpuPercent: number; memoryRssBytes: number; memoryHeapUsedBytes: number; eventLoopLagMs: number; uptimeSeconds: number; pid: number; hostMemoryTotalBytes?: number; hostMemoryFreeBytes?: number; hostLoad1m?: number; diskTotalBytes?: number; diskFreeBytes?: number; restartDetected?: number; restartCount?: number };
 
 const get = async <T,>(path: string): Promise<T> => {
   const response = await fetch(path);

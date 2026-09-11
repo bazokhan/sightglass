@@ -122,8 +122,9 @@ export const observe: ObserveApi = Object.assign(
       const id = randomUUID();
       const safe = boundedAttributes(attributes);
       const unit = settings?.meters?.[name]?.unit;
+      const accepted = transport?.enqueueMeter({ id, occurrenceId: active.occurrence.id, timestamp: new Date().toISOString(), service: active.occurrence.service, environment: active.occurrence.environment, meter: boundedName(name, "meter"), quantity, ...(unit ? { unit } : {}), ...(typeof safe.tenantId === "string" ? { tenantId: safe.tenantId } : {}), attributes: safe });
+      if (!accepted) return undefined;
       active.occurrence.usage.push(id);
-      transport?.enqueueMeter({ id, occurrenceId: active.occurrence.id, timestamp: new Date().toISOString(), service: active.occurrence.service, environment: active.occurrence.environment, meter: boundedName(name, "meter"), quantity, ...(unit ? { unit } : {}), ...(typeof safe.tenantId === "string" ? { tenantId: safe.tenantId } : {}), attributes: safe });
       return id;
     },
     async step<T>(name: string, fn: () => T | Promise<T>): Promise<T> {

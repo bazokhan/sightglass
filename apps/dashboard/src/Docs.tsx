@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-type DocId = "start" | "concepts" | "express" | "nest" | "next" | "prisma" | "operate";
+type DocId = "start" | "concepts" | "express" | "nest" | "next" | "prisma" | "api" | "operate" | "production";
 
 const pages: Array<{ id: DocId; label: string; eyebrow: string }> = [
   { id: "start", label: "Start here", eyebrow: "5 minute setup" },
@@ -9,7 +9,9 @@ const pages: Array<{ id: DocId; label: string; eyebrow: string }> = [
   { id: "nest", label: "NestJS", eyebrow: "Decorators" },
   { id: "next", label: "Next.js", eyebrow: "Route handlers" },
   { id: "prisma", label: "Prisma & fetch", eyebrow: "Automatic detail" },
+  { id: "api", label: "API & exports", eyebrow: "Integrations" },
   { id: "operate", label: "Run & configure", eyebrow: "Deployment" },
+  { id: "production", label: "Production", eyebrow: "Security & recovery" },
 ];
 
 export function DocsView() {
@@ -120,13 +122,23 @@ const prisma = withSightglass(new PrismaClient());`} />
     <p>A W3C <code>traceparent</code> header is propagated. A downstream Sightglass service joins the distributed operation only when its receiving route is explicitly observed.</p>
   </>;
 
-  return <>
+  if (page === "api") return <>
+    <DocHeading kicker="HTTP API" title="Query and export" summary="The opinionated dashboard uses a small read API that is also available for internal integrations." />
+    <DefinitionGrid items={[
+      ["GET /healthz", "Process readiness"], ["GET /api/v1/services", "Services and last-seen times"], ["GET /api/v1/summary", "Calls, errors, percentiles, unauthorized counts, and DB share"], ["GET /api/v1/occurrences", "Filterable occurrence list"], ["GET /api/v1/occurrences/:id", "Full detail and correlated operations"], ["GET /api/v1/traces/:traceId", "Distributed operation members"], ["GET /api/v1/database", "Prisma rankings and source operations"], ["GET /api/v1/dependencies", "Outbound rankings and source operations"], ["GET /api/v1/usage", "Exact usage totals, optionally by tenant"], ["GET /api/v1/health", "Process, host, and restart history"],
+    ]} />
+    <h2>Ranges and pagination</h2><p>Range endpoints accept ISO 8601 <code>from</code> and <code>to</code> values and default to 24 hours. Occurrences also accept <code>service</code>, <code>operation</code>, <code>status</code>, <code>limit</code>, and <code>offset</code>.</p>
+    <h2>Exact ledger export</h2><CodeBlock code={`GET /api/v1/usage/export?from=2026-01-01T00:00:00.000Z
+GET /api/v1/usage/export?format=json&from=2026-01-01T00:00:00.000Z`} />
+  </>;
+
+  if (page === "operate") return <>
     <DocHeading kicker="Run & configure" title="One process, one volume" summary="Sightglass is designed to remain boring to operate: one port, one SQLite file, and configurable retention." />
     <h2>Docker</h2><CodeBlock code={`docker compose up --build
 # Dashboard and API: http://localhost:7777`} />
     <h2>SDK configuration</h2>
     <DefinitionGrid items={[
-      ["service", "Required service identity"], ["endpoint", "Sightglass server URL"], ["environment", "Defaults to NODE_ENV"], ["apiKey", "Bearer token for ingestion"], ["meters", "Meter names and units"], ["batchSize", "Default 25 occurrences"], ["flushIntervalMs", "Default 2 seconds"], ["maxQueueSize", "Default 1,000"], ["meterSpoolDirectory", "Durable local meter spool"], ["healthIntervalMs", "Default 60 seconds"],
+      ["service", "Required service identity"], ["endpoint", "Sightglass server URL"], ["environment", "Defaults to NODE_ENV"], ["apiKey", "Bearer token for ingestion"], ["meters", "Meter names and units"], ["batchSize", "Default 25 items"], ["flushIntervalMs", "Default 2 seconds"], ["maxQueueSize", "Default 1,000 per in-memory queue"], ["requestTimeoutMs", "Default 3 seconds"], ["retryBaseMs", "Default 500 ms"], ["retryMaxMs", "Default 60 seconds"], ["meterSpoolDirectory", "Durable local meter spool; false opts out"], ["fetchInstrumentation", "Automatic native fetch detail; default true"], ["healthIntervalMs", "Default 60 seconds; false disables"], ["onTelemetryError", "Diagnostic callback for delivery/spool failures"],
     ]} />
     <h2>Server environment</h2><CodeBlock code={`SIGHTGLASS_PORT=7777
 SIGHTGLASS_DATABASE_PATH=/data/sightglass.db
@@ -135,6 +147,25 @@ SIGHTGLASS_SUCCESS_RETENTION_DAYS=7
 SIGHTGLASS_ERROR_RETENTION_DAYS=30
 SIGHTGLASS_AGGREGATE_RETENTION_DAYS=365`} />
     <h2>Usage export</h2><p>Open Usage and export the exact ledger as CSV or JSON. Meter records are retained indefinitely and deduplicated by event ID.</p>
+  </>;
+
+  return <>
+    <DocHeading kicker="Production" title="Operate the boundary safely" summary="Back up the one volume, keep reads private, and monitor durable meter delivery." />
+    <Callout title="Trusted network required">The API key authenticates ingestion only. Dashboard and read APIs must stay on a trusted private network or behind an authenticating TLS reverse proxy.</Callout>
+    <h2>Backup and restore</h2><p>SQLite uses WAL mode. Use SQLite's online backup command, or stop the container before copying the database together with its <code>-wal</code> and <code>-shm</code> files. Restore while stopped.</p>
+    <h2>Upgrade</h2><p>Back up the volume, rebuild or pull the image, and recreate the container with the same volume. Transactional migrations run at startup. Restore the matching backup instead of downgrading an upgraded database.</p>
+    <h2>Durable usage recovery</h2><p>Each meter is synced to the local spool before its ID is returned. Backlogs are drained through bounded memory and files are removed only after acknowledgement. Put the spool on durable storage and monitor its size.</p>
+    <CodeBlock code={`configureSightglass({
+  service: "billing-api",
+  endpoint: "http://sightglass:7777",
+  meterSpoolDirectory: "/var/lib/my-app/sightglass-spool",
+  onTelemetryError(error, area) {
+    logger.error({ error, area }, "Sightglass delivery degraded");
+  }
+});`} />
+    <h2>SDK packages from this checkout</h2><CodeBlock code={`npm run build
+npm run pack:sdk
+# Install the required tarballs from dist-packages/ in your application`} />
   </>;
 }
 

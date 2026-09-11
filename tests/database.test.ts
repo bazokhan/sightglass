@@ -32,13 +32,19 @@ describe("SQLite store", () => {
     expect(store.trace(parent.distributed.traceId)).toHaveLength(2);
     expect((store.occurrence(parent.id) as { distributedOccurrences: unknown[] }).distributedOccurrences).toHaveLength(2);
     const rows = store.health("2000-01-01T00:00:00.000Z", "2100-01-01T00:00:00.000Z") as Array<Record<string, number>>;
-    expect(rows[1]?.restartDetected).toBe(1); store.database.close();
+    expect(rows[1]?.restartDetected).toBe(1); expect(rows[1]?.restartCount).toBe(1); store.database.close();
   });
 
   it("upgrades a pre-migration database without losing existing health rows", () => {
     const directory = mkdtempSync(join(tmpdir(), "sightglass-upgrade-")); const path = join(directory, "old.sqlite");
     const legacy = new DatabaseSync(path); legacy.exec("CREATE TABLE health_samples (id TEXT PRIMARY KEY, service TEXT NOT NULL, environment TEXT NOT NULL, timestamp TEXT NOT NULL, cpu_percent REAL NOT NULL, memory_rss_bytes INTEGER NOT NULL, heap_used_bytes INTEGER NOT NULL, event_loop_lag_ms REAL NOT NULL, uptime_seconds REAL NOT NULL, pid INTEGER NOT NULL); INSERT INTO health_samples VALUES ('legacy', 'api', 'prod', '2026-01-01T00:00:00.000Z', 1, 2, 1, 0, 10, 7)"); legacy.close();
     const store = new Store(path); expect(store.schemaVersion()).toBe(2); expect(store.health("2025-01-01T00:00:00.000Z", "2027-01-01T00:00:00.000Z")).toHaveLength(1); store.database.close(); rmSync(directory, { recursive: true, force: true });
+  });
+
+  it("retains exact usage totals beyond ordinary aggregate retention", () => {
+    const store = new Store(":memory:"); const old = "2020-01-01T00:00:00.000Z";
+    store.ingest({ protocol: 1, occurrences: [], meters: [meter(old)], health: [] }); store.cleanup(1, 1, 1);
+    expect(store.usage("2019-01-01T00:00:00.000Z", "2021-01-01T00:00:00.000Z")).toHaveLength(1); expect(store.usageRows("2019-01-01T00:00:00.000Z", "2021-01-01T00:00:00.000Z")).toHaveLength(1); store.database.close();
   });
 });
 

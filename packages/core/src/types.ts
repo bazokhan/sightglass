@@ -124,6 +124,7 @@ export interface SightglassConfig {
   fetchInstrumentation?: boolean;
   healthIntervalMs?: number | false;
   meters?: Record<string, { unit: string }>;
+  onTelemetryError?: (error: Error, area: "transport" | "meter-spool") => void;
 }
 
 export interface OperationOptions {

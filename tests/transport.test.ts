@@ -33,4 +33,12 @@ describe("reliable transport", () => {
     const transport = new Transport({ service: "test", endpoint: "http://collector", batchSize: 100, flushIntervalMs: 60_000, maxQueueSize: 100, requestTimeoutMs: 100, retryBaseMs: 1, retryMaxMs: 2, meterSpoolDirectory: directory });
     await transport.close(); expect(readdirSync(directory)).toEqual(["broken.json"]); rmSync(directory, { recursive: true, force: true });
   });
+
+  it("drains a disk backlog larger than the bounded in-memory queue", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "sightglass-backlog-")); const delivered: string[] = [];
+    for (let index = 0; index < 7; index += 1) { const meter: UsageEvent = { id: `meter-${index}`, occurrenceId: "operation", timestamp: new Date().toISOString(), service: "test", environment: "test", meter: "units", quantity: 1, attributes: {} }; writeFileSync(join(directory, `${meter.id}.json`), JSON.stringify(meter)); }
+    globalThis.fetch = (async (_input, init) => { const body = JSON.parse(String(init?.body)) as { meters: UsageEvent[] }; delivered.push(...body.meters.map((meter) => meter.id)); return new Response(null, { status: 202 }); }) as typeof fetch;
+    const transport = new Transport({ service: "test", endpoint: "http://collector", batchSize: 2, flushIntervalMs: 60_000, maxQueueSize: 2, requestTimeoutMs: 100, retryBaseMs: 1, retryMaxMs: 2, meterSpoolDirectory: directory });
+    await transport.close(); expect(new Set(delivered).size).toBe(7); expect(readdirSync(directory)).toHaveLength(0); rmSync(directory, { recursive: true, force: true });
+  });
 });

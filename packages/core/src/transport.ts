@@ -1,4 +1,4 @@
-import { closeSync, fsyncSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, opendirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { HealthSample, IngestEnvelope, Occurrence, SightglassConfig, UsageEvent } from "./types.js";
 
@@ -23,10 +23,15 @@ export class Transport {
     if (this.occurrences.length >= this.config.batchSize) void this.flush();
   }
 
-  enqueueMeter(value: UsageEvent): void {
-    this.meters.set(value.id, value);
-    this.spool(value);
+  enqueueMeter(value: UsageEvent): boolean {
+    const durable = this.spool(value);
+    if (this.meters.size < this.config.maxQueueSize || this.meters.has(value.id)) this.meters.set(value.id, value);
+    else if (!durable) {
+      this.report(new Error("meter queue is full and durable spool is unavailable"), "meter-spool");
+      return false;
+    }
     if (this.meters.size >= this.config.batchSize) void this.flush();
+    return true;
   }
 
   enqueueHealth(value: HealthSample): void {
@@ -57,9 +62,10 @@ export class Transport {
         this.meters.delete(meter.id);
         this.removeSpool(meter.id);
       }
+      this.loadSpool();
       this.retryAttempt = 0;
       this.nextRetryAt = 0;
-    } catch {
+    } catch (error) {
       this.occurrences.unshift(...occurrences);
       if (this.occurrences.length > this.config.maxQueueSize) {
         this.occurrences.splice(0, this.occurrences.length - this.config.maxQueueSize);
@@ -68,6 +74,7 @@ export class Transport {
       this.retryAttempt += 1;
       const ceiling = Math.min(this.config.retryMaxMs, this.config.retryBaseMs * 2 ** (this.retryAttempt - 1));
       this.nextRetryAt = Date.now() + Math.round(ceiling * (0.75 + Math.random() * 0.5));
+      this.report(error instanceof Error ? error : new Error(String(error)), "transport");
     } finally {
       this.sending = false;
     }
@@ -82,8 +89,8 @@ export class Transport {
     }
   }
 
-  private spool(event: UsageEvent): void {
-    if (!this.config.meterSpoolDirectory) return;
+  private spool(event: UsageEvent): boolean {
+    if (!this.config.meterSpoolDirectory) return false;
     const finalPath = join(this.config.meterSpoolDirectory, `${event.id}.json`);
     const temporaryPath = join(this.config.meterSpoolDirectory, `${event.id}.${process.pid}.tmp`);
     let descriptor: number | undefined;
@@ -94,10 +101,13 @@ export class Transport {
       fsyncSync(descriptor);
       closeSync(descriptor); descriptor = undefined;
       renameSync(temporaryPath, finalPath);
-    } catch {
+      return true;
+    } catch (error) {
       if (descriptor !== undefined) try { closeSync(descriptor); } catch { /* already closed */ }
       try { unlinkSync(temporaryPath); } catch { /* no partial file */ }
-      /* host application must never fail because telemetry did */
+      if (existsSync(finalPath)) return true;
+      this.report(error instanceof Error ? error : new Error(String(error)), "meter-spool");
+      return false;
     }
   }
 
@@ -105,17 +115,26 @@ export class Transport {
     if (!this.config.meterSpoolDirectory) return;
     try {
       mkdirSync(this.config.meterSpoolDirectory, { recursive: true });
-      for (const file of readdirSync(this.config.meterSpoolDirectory).filter((name) => name.endsWith(".json")).slice(0, 10_000)) {
-        try {
-          const event = JSON.parse(readFileSync(join(this.config.meterSpoolDirectory, file), "utf8")) as UsageEvent;
-          if (event.id && event.id === file.slice(0, -5)) this.meters.set(event.id, event);
-        } catch { /* one corrupt entry must not block recovery of valid entries */ }
-      }
+      const directory = opendirSync(this.config.meterSpoolDirectory);
+      try {
+        for (let entry = directory.readSync(); entry && this.meters.size < this.config.maxQueueSize; entry = directory.readSync()) {
+          const file = entry.name;
+          if (!entry.isFile() || !file.endsWith(".json")) continue;
+          try {
+            const event = JSON.parse(readFileSync(join(this.config.meterSpoolDirectory, file), "utf8")) as UsageEvent;
+            if (event.id && event.id === file.slice(0, -5) && !this.meters.has(event.id)) this.meters.set(event.id, event);
+          } catch (error) { this.report(error instanceof Error ? error : new Error(String(error)), "meter-spool"); }
+        }
+      } finally { directory.closeSync(); }
     } catch { /* an unreadable spool degrades to in-memory delivery */ }
   }
 
   private removeSpool(id: string): void {
     if (!this.config.meterSpoolDirectory) return;
     try { unlinkSync(join(this.config.meterSpoolDirectory, `${id}.json`)); } catch { /* already removed */ }
+  }
+
+  private report(error: Error, area: "transport" | "meter-spool"): void {
+    try { this.config.onTelemetryError?.(error, area); } catch { /* diagnostics must not affect the host */ }
   }
 }

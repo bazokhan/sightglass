@@ -18,6 +18,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "benchmark": "tsx scripts/benchmark-ingest.ts",
+    "pack:sdk": "node scripts/pack-sdk.mjs",
     "start": "npm run start -w @sightglass/server"
   },
   "devDependencies": {

@@ -79,7 +79,7 @@ export class Store {
   }
 
   health(from: string, to: string): object[] {
-    return this.database.prepare("SELECT service, environment, timestamp, cpu_percent cpuPercent, memory_rss_bytes memoryRssBytes, heap_used_bytes memoryHeapUsedBytes, event_loop_lag_ms eventLoopLagMs, uptime_seconds uptimeSeconds, pid, host_memory_total_bytes hostMemoryTotalBytes, host_memory_free_bytes hostMemoryFreeBytes, host_load_1m hostLoad1m, disk_total_bytes diskTotalBytes, disk_free_bytes diskFreeBytes, restart_detected restartDetected FROM health_samples WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp").all(from, to) as object[];
+    return this.database.prepare("SELECT service, environment, timestamp, cpu_percent cpuPercent, memory_rss_bytes memoryRssBytes, heap_used_bytes memoryHeapUsedBytes, event_loop_lag_ms eventLoopLagMs, uptime_seconds uptimeSeconds, pid, host_memory_total_bytes hostMemoryTotalBytes, host_memory_free_bytes hostMemoryFreeBytes, host_load_1m hostLoad1m, disk_total_bytes diskTotalBytes, disk_free_bytes diskFreeBytes, restart_detected restartDetected, SUM(restart_detected) OVER (PARTITION BY service, environment ORDER BY timestamp) restartCount FROM health_samples WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp").all(from, to) as object[];
   }
 
   services(): object[] { return this.database.prepare("SELECT service, MAX(started_at) lastSeen FROM occurrences GROUP BY service ORDER BY service").all() as object[]; }
@@ -91,7 +91,6 @@ export class Store {
       this.database.prepare("DELETE FROM occurrences WHERE status = 'success' AND started_at < ?").run(cutoff(successDays));
       this.database.prepare("DELETE FROM occurrences WHERE status = 'error' AND started_at < ?").run(cutoff(errorDays));
       this.database.prepare("DELETE FROM hourly_aggregates WHERE hour < ?").run(cutoff(aggregateDays));
-      this.database.prepare("DELETE FROM hourly_meter_aggregates WHERE hour < ?").run(cutoff(aggregateDays));
       this.database.prepare("DELETE FROM hourly_database_aggregates WHERE hour < ?").run(cutoff(aggregateDays));
       this.database.prepare("DELETE FROM hourly_dependency_aggregates WHERE hour < ?").run(cutoff(aggregateDays));
       this.database.prepare("DELETE FROM health_samples WHERE timestamp < ?").run(cutoff(aggregateDays));
@@ -113,10 +112,10 @@ export class Store {
 
   private upsertAggregate(value: Occurrence): void {
     const hour = `${value.startedAt.slice(0, 13)}:00:00.000Z`;
-    const current = this.database.prepare("SELECT latencies_json latencies FROM hourly_aggregates WHERE hour = ? AND service = ? AND environment = ? AND operation = ?").get(hour, value.service, value.environment, value.operation) as Row | undefined;
+    const current = this.database.prepare("SELECT latencies_json latencies, call_count callCount FROM hourly_aggregates WHERE hour = ? AND service = ? AND environment = ? AND operation = ?").get(hour, value.service, value.environment, value.operation) as Row | undefined;
     const latencies = current ? safeNumbers(String(current.latencies)) : [];
     if (latencies.length < 2048) latencies.push(value.durationMs);
-    else latencies[Math.floor(Math.random() * latencies.length)] = value.durationMs;
+    else if (Math.random() < latencies.length / (Number(current?.callCount ?? 0) + 1)) latencies[Math.floor(Math.random() * latencies.length)] = value.durationMs;
     this.database.prepare(`INSERT INTO hourly_aggregates (hour, service, environment, operation, call_count, error_count, unauthorized_count, duration_sum, db_duration_sum, latencies_json) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?) ON CONFLICT(hour, service, environment, operation) DO UPDATE SET call_count=call_count+1, error_count=error_count+excluded.error_count, unauthorized_count=unauthorized_count+excluded.unauthorized_count, duration_sum=duration_sum+excluded.duration_sum, db_duration_sum=db_duration_sum+excluded.db_duration_sum, latencies_json=excluded.latencies_json`).run(hour, value.service, value.environment, value.operation, value.status === "error" ? 1 : 0, value.request?.statusCode === 401 || value.request?.statusCode === 403 ? 1 : 0, value.durationMs, value.database.totalDurationMs, JSON.stringify(latencies));
   }
 

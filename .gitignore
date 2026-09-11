@@ -1,5 +1,6 @@
 node_modules/
 dist/
+dist-packages/
 data/
 *.db
 *.db-shm
@@ -8,4 +9,5 @@ data/
 .DS_Store
 coverage/
 .npm-cache/
+package-smoke-temp/
 .sightglass-spool/

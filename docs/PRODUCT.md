@@ -24,7 +24,8 @@ Context/event attributes accept at most 32 entries; keys are at most 64 characte
 
 - successful raw occurrences: 7 days
 - error occurrences: 30 days
-- hourly aggregates and service health: 365 days
+- ordinary hourly aggregates and service health: 365 days
 - usage meter ledger: indefinite
+- compact hourly meter totals: indefinite
 
-All raw/aggregate retention windows are configurable with environment variables.
+Occurrence and ordinary aggregate retention windows are configurable with environment variables. Exact meter rows and meter totals intentionally have no automatic expiry.

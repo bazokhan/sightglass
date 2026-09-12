@@ -1,4 +1,4 @@
-FROM node:24-alpine AS build
+FROM --platform=$BUILDPLATFORM node:24-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json tsconfig.base.json eslint.config.js ./
 COPY apps/server/package.json ./apps/server/package.json

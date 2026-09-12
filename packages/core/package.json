@@ -1,11 +1,20 @@
 {
   "name": "@sightglass/core",
   "version": "0.1.0",
+  "description": "Opt-in application observability primitives for Node.js and TypeScript.",
+  "license": "MIT",
+  "author": "Sightglass contributors",
+  "repository": { "type": "git", "url": "git+https://github.com/bazokhan/sightglass.git", "directory": "packages/core" },
+  "homepage": "https://github.com/bazokhan/sightglass#readme",
+  "bugs": { "url": "https://github.com/bazokhan/sightglass/issues" },
+  "keywords": ["observability", "telemetry", "nodejs", "typescript"],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
   "files": ["dist"],
+  "engines": { "node": ">=22.13" },
+  "publishConfig": { "access": "public", "provenance": true },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"

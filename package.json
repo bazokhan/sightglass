@@ -20,10 +20,15 @@
     "benchmark": "npm run build -w @sightglass/server && tsx scripts/benchmark-suite.ts",
     "verify:recovery": "tsx scripts/verify-backup-restore.ts",
     "verify": "npm test && npm run typecheck && npm run lint && npm run build && npm run pack:sdk && npm run verify:recovery",
+    "release:check": "node scripts/validate-release.mjs",
+    "changeset": "changeset",
+    "version:packages": "changeset version",
+    "release": "npm run release:check && changeset publish",
     "pack:sdk": "node scripts/pack-sdk.mjs",
     "start": "npm run start -w @sightglass/server"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.29.7",
     "@eslint/js": "^9.35.0",
     "@types/node": "^24.3.1",
     "eslint": "^9.35.0",

@@ -11,3 +11,4 @@ coverage/
 .npm-cache/
 package-smoke-temp/
 .sightglass-spool/
+.benchmark-output/

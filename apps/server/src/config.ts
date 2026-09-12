@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
 function positiveInteger(name: string, fallback: number): number {
@@ -8,8 +9,12 @@ function positiveInteger(name: string, fallback: number): number {
 
 export const config = Object.freeze({
   port: positiveInteger("SIGHTGLASS_PORT", 7777),
-  databasePath: resolve(process.env.SIGHTGLASS_DATABASE_PATH ?? "data/sightglass.db"),
-  dashboardPath: resolve(process.env.SIGHTGLASS_DASHBOARD_PATH ?? "apps/dashboard/dist"),
+  databasePath: process.env.SIGHTGLASS_DATABASE_PATH
+    ? resolve(process.env.SIGHTGLASS_DATABASE_PATH)
+    : fileURLToPath(new URL("../../../data/sightglass.db", import.meta.url)),
+  dashboardPath: process.env.SIGHTGLASS_DASHBOARD_PATH
+    ? resolve(process.env.SIGHTGLASS_DASHBOARD_PATH)
+    : fileURLToPath(new URL("../../dashboard/dist", import.meta.url)),
   apiKey: process.env.SIGHTGLASS_API_KEY,
   successRetentionDays: positiveInteger("SIGHTGLASS_SUCCESS_RETENTION_DAYS", 7),
   errorRetentionDays: positiveInteger("SIGHTGLASS_ERROR_RETENTION_DAYS", 30),

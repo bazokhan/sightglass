@@ -10,14 +10,14 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build -w @sightglass/core && npm run build -w @sightglass/express && npm run build -w @sightglass/fastify && npm run build -w @sightglass/nest && npm run build -w @sightglass/next && npm run build -w @sightglass/prisma && npm run build -w @sightglass/dashboard && npm run build -w @sightglass/server",
-    "dev": "npm run dev -w @sightglass/server",
-    "pretest": "npm run build -w @sightglass/core",
+    "build": "npm run build -w @bazokhan/sightglass-core && npm run build -w @bazokhan/sightglass-express && npm run build -w @bazokhan/sightglass-fastify && npm run build -w @bazokhan/sightglass-nest && npm run build -w @bazokhan/sightglass-next && npm run build -w @bazokhan/sightglass-prisma && npm run build -w @bazokhan/sightglass-dashboard && npm run build -w @bazokhan/sightglass-server",
+    "dev": "npm run dev -w @bazokhan/sightglass-server",
+    "pretest": "npm run build -w @bazokhan/sightglass-core",
     "test": "vitest run",
-    "pretypecheck": "npm run build -w @sightglass/core",
+    "pretypecheck": "npm run build -w @bazokhan/sightglass-core",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
-    "benchmark": "npm run build -w @sightglass/server && tsx scripts/benchmark-suite.ts",
+    "benchmark": "npm run build -w @bazokhan/sightglass-server && tsx scripts/benchmark-suite.ts",
     "verify:recovery": "tsx scripts/verify-backup-restore.ts",
     "verify": "npm test && npm run typecheck && npm run lint && npm run build && npm run pack:sdk && npm run verify:recovery",
     "release:check": "node scripts/validate-release.mjs",
@@ -25,7 +25,7 @@
     "version:packages": "changeset version",
     "release": "npm run release:check && changeset publish",
     "pack:sdk": "node scripts/pack-sdk.mjs",
-    "start": "npm run start -w @sightglass/server"
+    "start": "npm run start -w @bazokhan/sightglass-server"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.7",

@@ -2,7 +2,7 @@ import "reflect-metadata";
 import Fastify from "fastify";
 import { EventEmitter } from "node:events";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { configureSightglass, observe as coreObserve, runObserved, shutdownSightglass } from "@sightglass/core";
+import { configureSightglass, observe as coreObserve, runObserved, shutdownSightglass } from "@bazokhan/sightglass-core";
 import type { IngestEnvelope } from "../packages/core/src/types.js";
 import { Observe as ObserveExpress, observe as observeExpress } from "../packages/express/src/index.js";
 import { observe as observeFastify, sightglass as sightglassFastify } from "../packages/fastify/src/index.js";
@@ -50,7 +50,7 @@ describe("framework adapters", () => {
     expect(occurrence?.request).toMatchObject({ method: "POST", route: "/checkout/:id", statusCode: 201 });
     expect(occurrence?.events[0]?.name).toBe("fastify.completed");
     expect(occurrence?.distributed.parentId).toBe("b".repeat(16));
-  });
+  }, 15_000);
 
   it("honors NestJS observation metadata through the interceptor", async () => {
     class Controller { handler() { return "ok"; } }

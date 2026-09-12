@@ -1,9 +1,9 @@
-# @sightglass/core
+# @bazokhan/sightglass-core
 
 Explicit, low-noise observability primitives for Node.js and TypeScript.
 
 ```ts
-import { configureSightglass, observe } from "@sightglass/core";
+import { configureSightglass, observe } from "@bazokhan/sightglass-core";
 
 configureSightglass({
   service: "billing-api",
@@ -19,4 +19,3 @@ export const charge = observe("billing.charge", async (invoiceId: string) => {
 ```
 
 Sightglass records only code paths you opt into. See the [quickstart](https://sightglass-observability-without-noise.vercel.app/docs/quickstart) and [API reference](https://sightglass-observability-without-noise.vercel.app/docs/api).
-

@@ -3,7 +3,7 @@
 The product is scope-complete for today. The next session should focus on distribution and presentation, in this order:
 
 1. **Publish every SDK to npm**
-   - Establish a proper synchronized versioning and release flow for all `@sightglass/*` SDK packages.
+   - Establish a proper synchronized versioning and release flow for all `@bazokhan/sightglass-*` SDK packages.
    - Automate trusted npm publishing from GitHub Actions.
    - Publish the initial SDK release and verify installation from a clean external project.
 
@@ -21,4 +21,3 @@ The product is scope-complete for today. The next session should focus on distri
    - Redesign the dashboard into a cleaner, more modern product interface inspired by Vercel and comparable contemporary developer tools.
    - Preserve all existing functionality, filtering, accessibility, responsive behavior, and information density.
    - Treat this as a visual and interaction-system redesign, not a feature expansion.
-

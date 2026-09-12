@@ -1,4 +1,4 @@
-import { runObserved, setRequestStatus } from "@sightglass/core";
+import { runObserved, setRequestStatus } from "@bazokhan/sightglass-core";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 
 export function observe(name?: string): RequestHandler {

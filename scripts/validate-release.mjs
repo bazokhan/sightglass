@@ -19,8 +19,8 @@ for (const { name, value } of manifests) {
 }
 
 for (const { value } of manifests.filter(({ name }) => name !== "core")) {
-  if (value.dependencies?.["@sightglass/core"] !== value.version) {
-    throw new Error(`${value.name} must depend on @sightglass/core ${value.version}`);
+  if (value.dependencies?.["@bazokhan/sightglass-core"] !== value.version) {
+    throw new Error(`${value.name} must depend on @bazokhan/sightglass-core ${value.version}`);
   }
 }
 

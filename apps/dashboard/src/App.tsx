@@ -14,7 +14,7 @@ const tabs = [
   { label: "Health" as const, icon: Gauge },
 ];
 const validHours = new Set([1, 24, 168, 720]);
-const docsUrl = "https://sightglass-observability-without-noise.vercel.app/docs";
+const docsUrl = "https://sightglass-docs.vercel.app/docs";
 
 function readUrlState() {
   const query = new URLSearchParams(window.location.search);

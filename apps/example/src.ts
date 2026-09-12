@@ -1,6 +1,6 @@
 import express from "express";
-import { configureSightglass, observe as sightglass, shutdownSightglass } from "@sightglass/core";
-import { observe } from "@sightglass/express";
+import { configureSightglass, observe as sightglass, shutdownSightglass } from "@bazokhan/sightglass-core";
+import { observe } from "@bazokhan/sightglass-express";
 
 configureSightglass({ service: "example-shop", endpoint: process.env.SIGHTGLASS_ENDPOINT ?? "http://localhost:7777", meters: { "orders.created": { unit: "order" } } });
 const app = express();

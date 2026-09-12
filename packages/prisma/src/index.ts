@@ -1,4 +1,4 @@
-import { isObserving, recordDatabase } from "@sightglass/core";
+import { isObserving, recordDatabase } from "@bazokhan/sightglass-core";
 
 type PrismaLike = { $extends(extension: object): unknown };
 

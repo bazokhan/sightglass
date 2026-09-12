@@ -1,9 +1,9 @@
 {
-  "name": "@sightglass/example",
+  "name": "@bazokhan/sightglass-example",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": { "dev": "tsx src.ts" },
-  "dependencies": { "@sightglass/core": "0.1.0", "@sightglass/express": "0.1.0", "express": "^5.1.0" },
+  "dependencies": { "@bazokhan/sightglass-core": "0.1.0", "@bazokhan/sightglass-express": "0.1.0", "express": "^5.1.0" },
   "devDependencies": { "tsx": "^4.20.5" }
 }

@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import type { HealthSample, IngestEnvelope, Occurrence, UsageEvent } from "@sightglass/core";
+import type { HealthSample, IngestEnvelope, Occurrence, UsageEvent } from "@bazokhan/sightglass-core";
 
 type Row = Record<string, unknown>;
 type TelemetryFilters = { service?: string; environment?: string };

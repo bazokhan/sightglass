@@ -1,4 +1,4 @@
-import { normalizePath, runObserved, setRequestStatus } from "@sightglass/core";
+import { normalizePath, runObserved, setRequestStatus } from "@bazokhan/sightglass-core";
 
 type RouteHandler<TContext = unknown> = (request: Request, context: TContext) => Response | Promise<Response>;
 

@@ -1,5 +1,5 @@
 {
-  "name": "@sightglass/next",
+  "name": "@bazokhan/sightglass-next",
   "version": "0.1.0",
   "description": "Explicit Sightglass observability for Next.js route handlers.",
   "license": "MIT",
@@ -15,5 +15,5 @@
   "engines": { "node": ">=22.13" },
   "publishConfig": { "access": "public", "provenance": true },
   "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit" },
-  "dependencies": { "@sightglass/core": "0.1.0" }
+  "dependencies": { "@bazokhan/sightglass-core": "0.1.0" }
 }

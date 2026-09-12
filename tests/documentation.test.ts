@@ -7,8 +7,8 @@ const sdkNames = ["core", "express", "fastify", "nest", "next", "prisma"];
 describe("distribution documentation", () => {
   it("links consumers to the canonical public documentation repository", () => {
     const readme = readFileSync(resolve("README.md"), "utf8");
-    expect(readme).toContain("sightglass-observability-without-noise.vercel.app");
-    expect(readme).toContain("github.com/bazokhan/sightglass-observability-without-noise");
+    expect(readme).toContain("sightglass-docs.vercel.app");
+    expect(readme).toContain("github.com/bazokhan/sightglass-docs");
     expect(readme).not.toContain("docs/PRODUCT.md");
   });
 
@@ -24,6 +24,6 @@ describe("distribution documentation", () => {
   it("keeps consumer docs outside the private dashboard bundle", () => {
     const app = readFileSync(resolve("apps/dashboard/src/App.tsx"), "utf8");
     expect(app).not.toContain("DocsView");
-    expect(app).toContain("sightglass-observability-without-noise.vercel.app/docs");
+    expect(app).toContain("sightglass-docs.vercel.app/docs");
   });
 });

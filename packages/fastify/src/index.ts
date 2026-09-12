@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync, RouteHandlerMethod } from "fastify";
-import { configureSightglass, runObserved, setRequestStatus, shutdownSightglass } from "@sightglass/core";
-import type { SightglassConfig } from "@sightglass/core";
+import { configureSightglass, runObserved, setRequestStatus, shutdownSightglass } from "@bazokhan/sightglass-core";
+import type { SightglassConfig } from "@bazokhan/sightglass-core";
 
 export function sightglass(config: SightglassConfig): FastifyPluginAsync {
   return async (instance) => {

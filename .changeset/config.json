@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/@changesets/config@2.3.1/schema.json",
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "fixed": [["@sightglass/core", "@sightglass/express", "@sightglass/fastify", "@sightglass/nest", "@sightglass/next", "@sightglass/prisma"]],
+  "fixed": [["@bazokhan/sightglass-core", "@bazokhan/sightglass-express", "@bazokhan/sightglass-fastify", "@bazokhan/sightglass-nest", "@bazokhan/sightglass-next", "@bazokhan/sightglass-prisma"]],
   "linked": [],
   "access": "public",
   "baseBranch": "main",

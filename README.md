@@ -4,10 +4,10 @@
 
 Sightglass records only explicitly observed Node.js operations, with bounded business context, events, steps, database work, outbound dependencies, errors, distributed correlation, runtime health, and durable exact usage meters.
 
-- Documentation and quickstart: [Sightglass documentation](https://sightglass-observability-without-noise.vercel.app)
-- Public documentation source: [bazokhan/sightglass-observability-without-noise](https://github.com/bazokhan/sightglass-observability-without-noise)
-- Docker image: [`sightglasshq/sightglass`](https://hub.docker.com/r/sightglasshq/sightglass)
-- SDKs: `@sightglass/core`, `@sightglass/express`, `@sightglass/fastify`, `@sightglass/nest`, `@sightglass/next`, and `@sightglass/prisma`
+- Documentation and quickstart: [Sightglass documentation](https://sightglass-docs.vercel.app)
+- Public documentation source: [bazokhan/sightglass-docs](https://github.com/bazokhan/sightglass-docs)
+- Docker image: [`bazokhan/sightglass`](https://hub.docker.com/r/bazokhan/sightglass)
+- SDKs: `@bazokhan/sightglass-core`, `@bazokhan/sightglass-express`, `@bazokhan/sightglass-fastify`, `@bazokhan/sightglass-nest`, `@bazokhan/sightglass-next`, and `@bazokhan/sightglass-prisma`
 
 ## Development
 

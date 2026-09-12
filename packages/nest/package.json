@@ -1,5 +1,5 @@
 {
-  "name": "@sightglass/nest",
+  "name": "@bazokhan/sightglass-nest",
   "version": "0.1.0",
   "description": "Explicit Sightglass observability for NestJS applications.",
   "license": "MIT",
@@ -15,7 +15,7 @@
   "engines": { "node": ">=22.13" },
   "publishConfig": { "access": "public", "provenance": true },
   "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit" },
-  "dependencies": { "@sightglass/core": "0.1.0" },
+  "dependencies": { "@bazokhan/sightglass-core": "0.1.0" },
   "peerDependencies": { "@nestjs/common": ">=10", "@nestjs/core": ">=10", "reflect-metadata": ">=0.2", "rxjs": ">=7" },
   "devDependencies": { "@nestjs/common": "^11.1.6", "@nestjs/core": "^11.1.6", "reflect-metadata": "^0.2.2", "rxjs": "^7.8.2" }
 }

@@ -38,7 +38,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            sightglasshq/sightglass:${{ inputs.version }}
-            sightglasshq/sightglass:latest
+            bazokhan/sightglass:${{ inputs.version }}
+            bazokhan/sightglass:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

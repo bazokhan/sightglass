@@ -1,7 +1,7 @@
 import { CallHandler, DynamicModule, ExecutionContext, Injectable, Module, NestInterceptor, OnApplicationShutdown, SetMetadata } from "@nestjs/common";
 import { APP_INTERCEPTOR } from "@nestjs/core";
-import { configureSightglass, runObserved, setRequestStatus, shutdownSightglass } from "@sightglass/core";
-import type { SightglassConfig } from "@sightglass/core";
+import { configureSightglass, runObserved, setRequestStatus, shutdownSightglass } from "@bazokhan/sightglass-core";
+import type { SightglassConfig } from "@bazokhan/sightglass-core";
 import { Observable, defer, from, lastValueFrom } from "rxjs";
 
 const OBSERVE = Symbol("sightglass.observe");

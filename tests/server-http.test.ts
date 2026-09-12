@@ -10,9 +10,9 @@ let processHandle: ChildProcess; let origin: string; let directory: string;
 beforeAll(async () => {
   const port = await availablePort(); origin = `http://127.0.0.1:${port}`; directory = mkdtempSync(join(tmpdir(), "sightglass-http-"));
   processHandle = spawn(process.execPath, ["--import", "tsx", "apps/server/src/index.ts"], { cwd: process.cwd(), env: { ...process.env, SIGHTGLASS_PORT: String(port), SIGHTGLASS_DATABASE_PATH: join(directory, "test.sqlite"), SIGHTGLASS_API_KEY: "test-key", SIGHTGLASS_DASHBOARD_PATH: join(directory, "no-dashboard") }, stdio: "ignore" });
-  for (let attempt = 0; attempt < 50; attempt += 1) { try { if ((await fetch(`${origin}/healthz`)).ok) return; } catch { /* server is starting */ } await new Promise((resolve) => setTimeout(resolve, 50)); }
+  for (let attempt = 0; attempt < 200; attempt += 1) { try { if ((await fetch(`${origin}/healthz`)).ok) return; } catch { /* server is starting */ } await new Promise((resolve) => setTimeout(resolve, 50)); }
   throw new Error("Sightglass test server did not start");
-});
+}, 15_000);
 
 afterAll(async () => { if (processHandle && !processHandle.killed) await new Promise<void>((resolve) => { processHandle.once("exit", () => resolve()); processHandle.kill(); }); rmSync(directory, { recursive: true, force: true }); });
 

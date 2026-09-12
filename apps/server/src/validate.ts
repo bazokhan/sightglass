@@ -1,4 +1,4 @@
-import type { Attributes, HealthSample, IngestEnvelope, Occurrence, UsageEvent } from "@sightglass/core";
+import type { Attributes, HealthSample, IngestEnvelope, Occurrence, UsageEvent } from "@bazokhan/sightglass-core";
 
 type Value = Record<string, unknown>;
 const object = (value: unknown): value is Value => typeof value === "object" && value !== null && !Array.isArray(value);

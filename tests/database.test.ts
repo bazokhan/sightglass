@@ -19,6 +19,8 @@ describe("SQLite store", () => {
     const summary = store.summary("2000-01-01T00:00:00.000Z", "2100-01-01T00:00:00.000Z") as Array<Record<string, number>>;
     expect(summary[0]?.calls).toBe(1); expect(summary[0]?.errors).toBe(1);
     expect(store.usage("2000-01-01T00:00:00.000Z", "2100-01-01T00:00:00.000Z")).toHaveLength(1);
+    expect(store.trend("2000-01-01T00:00:00.000Z", "2100-01-01T00:00:00.000Z")).toMatchObject([{ calls: 1, errors: 1, errorRate: 100, p95: 120 }]);
+    expect(store.usageTrend("2000-01-01T00:00:00.000Z", "2100-01-01T00:00:00.000Z")).toMatchObject([{ meter: "orders.created", quantity: 1, events: 1 }]);
     expect(store.databaseRanking("2000-01-01T00:00:00.000Z", "2100-01-01T00:00:00.000Z")).toHaveLength(1);
     expect(store.dependencyRanking("2000-01-01T00:00:00.000Z", "2100-01-01T00:00:00.000Z")).toHaveLength(1);
     expect(store.schemaVersion()).toBe(2);
@@ -45,6 +47,21 @@ describe("SQLite store", () => {
     const store = new Store(":memory:"); const old = "2020-01-01T00:00:00.000Z";
     store.ingest({ protocol: 1, occurrences: [], meters: [meter(old)], health: [] }); store.cleanup(1, 1, 1);
     expect(store.usage("2019-01-01T00:00:00.000Z", "2021-01-01T00:00:00.000Z")).toHaveLength(1); expect(store.usageRows("2019-01-01T00:00:00.000Z", "2021-01-01T00:00:00.000Z")).toHaveLength(1); store.database.close();
+  });
+
+  it("applies service and environment filters consistently", () => {
+    const store = new Store(":memory:"); const first = occurrence(); const second = occurrence(); second.id = "occ-other"; second.service = "worker"; second.environment = "production"; second.database.operations = []; second.dependencies = []; second.usage = [];
+    store.ingest({ protocol: 1, occurrences: [first, second], meters: [meter(first.startedAt)], health: [health("health-1", 1, 10)] });
+    const range = ["2000-01-01T00:00:00.000Z", "2100-01-01T00:00:00.000Z"] as const;
+    expect(store.summary(...range, { service: "shop", environment: "test" })).toHaveLength(1);
+    expect(store.summary(...range, { environment: "missing" })).toHaveLength(0);
+    expect(store.occurrences({ from: range[0], to: range[1], environment: "production", limit: 50, offset: 0 })).toHaveLength(1);
+    expect(store.databaseRanking(...range, { service: "worker" })).toHaveLength(0);
+    expect(store.usage(...range, { service: "shop", environment: "test" })).toHaveLength(1);
+    expect(store.usageRows(...range, { environment: "production" })).toHaveLength(0);
+    expect(store.health(...range, { service: "shop", environment: "test" })).toHaveLength(1);
+    expect(store.services()).toEqual(expect.arrayContaining([expect.objectContaining({ service: "shop", environment: "test" }), expect.objectContaining({ service: "worker", environment: "production" })]));
+    store.database.close();
   });
 });
 

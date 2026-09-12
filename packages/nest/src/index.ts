@@ -1,6 +1,6 @@
-import { CallHandler, DynamicModule, ExecutionContext, Injectable, Module, NestInterceptor, SetMetadata } from "@nestjs/common";
+import { CallHandler, DynamicModule, ExecutionContext, Injectable, Module, NestInterceptor, OnApplicationShutdown, SetMetadata } from "@nestjs/common";
 import { APP_INTERCEPTOR } from "@nestjs/core";
-import { configureSightglass, runObserved, setRequestStatus } from "@sightglass/core";
+import { configureSightglass, runObserved, setRequestStatus, shutdownSightglass } from "@sightglass/core";
 import type { SightglassConfig } from "@sightglass/core";
 import { Observable, defer, from, lastValueFrom } from "rxjs";
 
@@ -29,10 +29,15 @@ export class SightglassInterceptor implements NestInterceptor {
   }
 }
 
+@Injectable()
+export class SightglassLifecycle implements OnApplicationShutdown {
+  async onApplicationShutdown(): Promise<void> { await shutdownSightglass(); }
+}
+
 @Module({})
 export class SightglassModule {
   static forRoot(config: SightglassConfig): DynamicModule {
     configureSightglass(config);
-    return { module: SightglassModule, providers: [SightglassInterceptor, { provide: APP_INTERCEPTOR, useExisting: SightglassInterceptor }], exports: [SightglassInterceptor] };
+    return { module: SightglassModule, providers: [SightglassInterceptor, SightglassLifecycle, { provide: APP_INTERCEPTOR, useExisting: SightglassInterceptor }], exports: [SightglassInterceptor] };
   }
 }

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { configureSightglass, observe, runObserved, shutdownSightglass } from "../packages/core/src/index.js";
 import type { IngestEnvelope } from "../packages/core/src/types.js";
 
@@ -10,6 +10,9 @@ beforeAll(() => {
     if (init?.body) envelopes.push(JSON.parse(String(init.body)) as IngestEnvelope);
     return new Response(JSON.stringify({ accepted: true }), { status: 202, headers: { "content-type": "application/json" } });
   }) as typeof fetch;
+});
+beforeEach(() => {
+  envelopes.length = 0;
   configureSightglass({ service: "test-api", environment: "test", endpoint: "http://collector", batchSize: 100, fetchInstrumentation: false, healthIntervalMs: false, meterSpoolDirectory: false });
 });
 
@@ -57,5 +60,18 @@ describe("operation context", () => {
     const occurrence = envelopes.flatMap((item) => item.occurrences).find((item) => item.operation === "calls-provider");
     expect(occurrence?.dependencies).toHaveLength(1);
     expect(occurrence?.dependencies[0]).toMatchObject({ host: "provider.example", path: "/customers/:id" });
+  });
+
+  it("shuts down idempotently and stays silent until reconfigured", async () => {
+    await runObserved("before-shutdown", {}, async () => undefined);
+    await shutdownSightglass();
+    await shutdownSightglass();
+    await runObserved("after-shutdown", {}, async () => undefined);
+    expect(envelopes.flatMap((item) => item.occurrences).map((item) => item.operation)).toEqual(["before-shutdown"]);
+
+    configureSightglass({ service: "reconfigured", environment: "test", endpoint: "http://collector", batchSize: 100, fetchInstrumentation: false, healthIntervalMs: false, meterSpoolDirectory: false });
+    await runObserved("after-reconfigure", {}, async () => undefined);
+    await shutdownSightglass();
+    expect(envelopes.flatMap((item) => item.occurrences).at(-1)?.service).toBe("reconfigured");
   });
 });

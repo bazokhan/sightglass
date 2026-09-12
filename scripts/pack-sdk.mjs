@@ -5,7 +5,7 @@ import process from "node:process";
 
 const destination = resolve("dist-packages");
 mkdirSync(destination, { recursive: true });
-for (const workspace of ["@sightglass/core", "@sightglass/express", "@sightglass/nest", "@sightglass/next", "@sightglass/prisma"]) {
+for (const workspace of ["@sightglass/core", "@sightglass/express", "@sightglass/fastify", "@sightglass/nest", "@sightglass/next", "@sightglass/prisma"]) {
   const npmCli = process.env.npm_execpath;
   if (!npmCli) throw new Error("npm_execpath is unavailable; run this command through npm");
   const result = spawnSync(process.execPath, [npmCli, "pack", "-w", workspace, "--pack-destination", destination], { stdio: "inherit", env: { ...process.env, npm_config_cache: resolve(".npm-cache") } });

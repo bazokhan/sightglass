@@ -55,6 +55,19 @@ app.post("/checkout", observe("checkout"), async (request, response) => {
 
 Unwrapped routes remain completely silent.
 
+## Fastify
+
+```ts
+import Fastify from "fastify";
+import { observe, sightglass } from "@sightglass/fastify";
+
+const app = Fastify();
+await app.register(sightglass({ service: "billing-api", endpoint: "http://sightglass:7777" }));
+app.post("/checkout", { handler: observe("checkout", async (_request, reply) => reply.code(201).send()) });
+```
+
+The plugin manages configuration and graceful shutdown; only wrapped handlers are observed.
+
 ## NestJS
 
 ```ts
@@ -69,6 +82,7 @@ checkout() { /* ... */ }
 ```
 
 `@Observe()` also works at controller level; use `@NoObserve()` on excluded methods. The module registers the interceptor globally.
+It also drains pending telemetry during Nest application shutdown.
 
 ## Next.js route handlers
 
@@ -103,6 +117,8 @@ Server environment variables: `SIGHTGLASS_PORT`, `SIGHTGLASS_DATABASE_PATH`, `SI
 
 `SIGHTGLASS_API_KEY` authenticates ingestion, not dashboard reads. Bind or expose Sightglass only on a trusted private network, or place it behind an authenticating reverse proxy. See [operations](docs/OPERATIONS.md) before production deployment.
 
+For plain Node.js or Express applications, stop accepting requests and then call `await shutdownSightglass()` before process exit. The call is idempotent, drains pending telemetry, and leaves the SDK silent until it is configured again. NestJS and the Fastify plugin integrate this automatically.
+
 See [product doctrine](docs/PRODUCT.md), [architecture](docs/ARCHITECTURE.md), [API reference](docs/API.md), [operations](docs/OPERATIONS.md), [protocol](docs/PROTOCOL.md), [reproducible benchmarks](docs/BENCHMARKS.md), and the [focused market comparison](docs/COMPARISON.md).
 
 ## Development
@@ -112,6 +128,7 @@ npm test
 npm run typecheck
 npm run build
 npm run lint
+npm run verify:recovery
 ```
 
 Node.js 22.13 or newer is required for the built-in SQLite module. Sightglass is licensed under MIT.

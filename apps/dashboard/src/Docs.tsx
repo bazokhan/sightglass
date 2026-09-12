@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { benchmarkResults } from "./benchmark-results";
 
-type DocId = "start" | "concepts" | "express" | "nest" | "next" | "prisma" | "api" | "benchmarks" | "compare" | "operate" | "production";
+type DocId = "start" | "concepts" | "express" | "fastify" | "nest" | "next" | "prisma" | "api" | "benchmarks" | "compare" | "operate" | "production";
 
 const pages: Array<{ id: DocId; label: string; eyebrow: string }> = [
   { id: "start", label: "Start here", eyebrow: "5 minute setup" },
   { id: "concepts", label: "Core API", eyebrow: "The five primitives" },
   { id: "express", label: "Express & tsoa", eyebrow: "Middleware" },
+  { id: "fastify", label: "Fastify", eyebrow: "Route wrappers" },
   { id: "nest", label: "NestJS", eyebrow: "Decorators" },
   { id: "next", label: "Next.js", eyebrow: "Route handlers" },
   { id: "prisma", label: "Prisma & fetch", eyebrow: "Automatic detail" },
@@ -95,7 +96,28 @@ export class AppModule {}`} />
 async checkout() {
   // ...
 }`} />
-    <p>Put <code>@Observe()</code> on a controller to observe all its handlers. Exclude an unimportant handler with <code>@NoObserve()</code>. Without either explicit choice, Sightglass remains silent.</p>
+    <p>Put <code>@Observe()</code> on a controller to observe all its handlers. Exclude an unimportant handler with <code>@NoObserve()</code>. Without either explicit choice, Sightglass remains silent. The module drains pending telemetry during Nest application shutdown.</p>
+  </>;
+
+  if (page === "fastify") return <>
+    <DocHeading kicker="Fastify" title="A plugin for lifecycle, a wrapper for intent" summary="Register Sightglass once, then wrap only the handlers whose business work matters." />
+    <CodeBlock code={`import Fastify from "fastify";
+import { observe, sightglass } from "@sightglass/fastify";
+
+const app = Fastify();
+await app.register(sightglass({
+  service: "billing-api",
+  endpoint: "http://sightglass:7777"
+}));
+
+app.post("/checkout/:id", {
+  handler: observe("checkout", async (request, reply) => {
+    reply.code(201);
+    return { ok: true };
+  })
+});`} />
+    <p>The route wrapper records Fastify's normalized route, final status, failures, and incoming W3C trace context. The plugin's <code>onClose</code> hook drains pending telemetry after in-flight requests finish.</p>
+    <Callout title="Still opt-in">Registering the plugin configures delivery and shutdown only. Unwrapped Fastify handlers remain silent.</Callout>
   </>;
 
   if (page === "next") return <>
@@ -128,9 +150,9 @@ const prisma = withSightglass(new PrismaClient());`} />
   if (page === "api") return <>
     <DocHeading kicker="HTTP API" title="Query and export" summary="The opinionated dashboard uses a small read API that is also available for internal integrations." />
     <DefinitionGrid items={[
-      ["GET /healthz", "Process readiness"], ["GET /api/v1/services", "Services and last-seen times"], ["GET /api/v1/summary", "Calls, errors, percentiles, unauthorized counts, and DB share"], ["GET /api/v1/occurrences", "Filterable occurrence list"], ["GET /api/v1/occurrences/:id", "Full detail and correlated operations"], ["GET /api/v1/traces/:traceId", "Distributed operation members"], ["GET /api/v1/database", "Prisma rankings and source operations"], ["GET /api/v1/dependencies", "Outbound rankings and source operations"], ["GET /api/v1/usage", "Exact usage totals, optionally by tenant"], ["GET /api/v1/health", "Process, host, and restart history"],
+      ["GET /healthz", "Process readiness"], ["GET /api/v1/services", "Service and environment combinations"], ["GET /api/v1/summary", "Calls, errors, percentiles, unauthorized counts, and DB share"], ["GET /api/v1/trend", "Hourly calls, error rate, average, and p95 latency"], ["GET /api/v1/occurrences", "Filterable occurrence list"], ["GET /api/v1/occurrences/:id", "Full detail and correlated operations"], ["GET /api/v1/traces/:traceId", "Distributed operation members"], ["GET /api/v1/database", "Prisma rankings and source operations"], ["GET /api/v1/dependencies", "Outbound rankings and source operations"], ["GET /api/v1/usage", "Exact usage totals, optionally by tenant"], ["GET /api/v1/usage/trend", "Hourly exact meter quantities"], ["GET /api/v1/health", "Process, host, and restart history"],
     ]} />
-    <h2>Ranges and pagination</h2><p>Range endpoints accept ISO 8601 <code>from</code> and <code>to</code> values and default to 24 hours. Occurrences also accept <code>service</code>, <code>operation</code>, <code>status</code>, <code>limit</code>, and <code>offset</code>.</p>
+    <h2>Ranges and filters</h2><p>Range endpoints accept ISO 8601 <code>from</code> and <code>to</code> values and default to 24 hours. Summary, trend, occurrences, database, dependencies, usage, exports, and health consistently accept <code>service</code> and <code>environment</code>. Occurrences additionally accept <code>operation</code>, <code>status</code>, <code>limit</code>, and <code>offset</code>.</p>
     <h2>Exact ledger export</h2><CodeBlock code={`GET /api/v1/usage/export?from=2026-01-01T00:00:00.000Z
 GET /api/v1/usage/export?format=json&from=2026-01-01T00:00:00.000Z`} />
   </>;
@@ -153,12 +175,18 @@ SIGHTGLASS_SUCCESS_RETENTION_DAYS=7
 SIGHTGLASS_ERROR_RETENTION_DAYS=30
 SIGHTGLASS_AGGREGATE_RETENTION_DAYS=365`} />
     <h2>Usage export</h2><p>Open Usage and export the exact ledger as CSV or JSON. Meter records are retained indefinitely and deduplicated by event ID.</p>
+    <h2>Graceful shutdown</h2><CodeBlock code={`import { shutdownSightglass } from "@sightglass/core";
+
+process.once("SIGTERM", async () => {
+  await shutdownSightglass();
+  process.exit(0);
+});`} /><p>Call shutdown after the application has stopped accepting work. It is idempotent, drains pending delivery, restores instrumented globals, and leaves the SDK silent until configured again. NestJS and the Fastify plugin handle this through their framework lifecycle.</p>
   </>;
 
   return <>
     <DocHeading kicker="Production" title="Operate the boundary safely" summary="Back up the one volume, keep reads private, and monitor durable meter delivery." />
     <Callout title="Trusted network required">The API key authenticates ingestion only. Dashboard and read APIs must stay on a trusted private network or behind an authenticating TLS reverse proxy.</Callout>
-    <h2>Backup and restore</h2><p>SQLite uses WAL mode. Use SQLite's online backup command, or stop the container before copying the database together with its <code>-wal</code> and <code>-shm</code> files. Restore while stopped.</p>
+    <h2>Backup and restore</h2><p>SQLite uses WAL mode. Use SQLite's online backup command, or stop the container before copying the database together with its <code>-wal</code> and <code>-shm</code> files. Restore while stopped. Run <code>npm run verify:recovery</code> to reproduce the tested online-backup and clean-restore procedure.</p>
     <h2>Upgrade</h2><p>Back up the volume, rebuild or pull the image, and recreate the container with the same volume. Transactional migrations run at startup. Restore the matching backup instead of downgrading an upgraded database.</p>
     <h2>Durable usage recovery</h2><p>Each meter is synced to the local spool before its ID is returned. Backlogs are drained through bounded memory and files are removed only after acknowledgement. Put the spool on durable storage and monitor its size.</p>
     <CodeBlock code={`configureSightglass({

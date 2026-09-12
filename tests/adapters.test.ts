@@ -1,10 +1,12 @@
 import "reflect-metadata";
+import Fastify from "fastify";
 import { EventEmitter } from "node:events";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { configureSightglass, observe as coreObserve, runObserved, shutdownSightglass } from "@sightglass/core";
 import type { IngestEnvelope } from "../packages/core/src/types.js";
 import { Observe as ObserveExpress, observe as observeExpress } from "../packages/express/src/index.js";
-import { Observe as ObserveNest, SightglassInterceptor } from "../packages/nest/src/index.js";
+import { observe as observeFastify, sightglass as sightglassFastify } from "../packages/fastify/src/index.js";
+import { Observe as ObserveNest, SightglassInterceptor, SightglassLifecycle } from "../packages/nest/src/index.js";
 import { observe as observeNext } from "../packages/next/src/index.js";
 import { withSightglass } from "../packages/prisma/src/index.js";
 import { defer, lastValueFrom, of } from "rxjs";
@@ -13,6 +15,9 @@ const envelopes: IngestEnvelope[] = [];
 const nativeFetch = globalThis.fetch;
 beforeAll(() => {
   globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => { if (init?.body) envelopes.push(JSON.parse(String(init.body)) as IngestEnvelope); return new Response(null, { status: 202 }); }) as typeof fetch;
+});
+beforeEach(() => {
+  envelopes.length = 0;
   configureSightglass({ service: "adapter-test", endpoint: "http://collector", batchSize: 100, fetchInstrumentation: false, healthIntervalMs: false, meterSpoolDirectory: false });
 });
 afterAll(async () => { await shutdownSightglass(); globalThis.fetch = nativeFetch; });
@@ -33,12 +38,32 @@ describe("framework adapters", () => {
     expect(envelopes.flatMap((item) => item.occurrences).find((item) => item.operation === "tsoa.checkout")?.events[0]?.name).toBe("decorated");
   });
 
+  it("observes selected Fastify handlers with route, status, and trace context", async () => {
+    await shutdownSightglass();
+    const app = Fastify();
+    await app.register(sightglassFastify({ service: "fastify-test", endpoint: "http://collector", batchSize: 100, fetchInstrumentation: false, healthIntervalMs: false, meterSpoolDirectory: false }));
+    app.post("/checkout/:id", { handler: observeFastify("fastify.checkout", async (_request, reply) => { coreObserve.event("fastify.completed"); return reply.code(201).send({ ok: true }); }) });
+    const response = await app.inject({ method: "POST", url: "/checkout/123", headers: { traceparent: `00-${"a".repeat(32)}-${"b".repeat(16)}-01` } });
+    expect(response.statusCode).toBe(201);
+    await app.close();
+    const occurrence = envelopes.flatMap((item) => item.occurrences).find((item) => item.operation === "fastify.checkout");
+    expect(occurrence?.request).toMatchObject({ method: "POST", route: "/checkout/:id", statusCode: 201 });
+    expect(occurrence?.events[0]?.name).toBe("fastify.completed");
+    expect(occurrence?.distributed.parentId).toBe("b".repeat(16));
+  });
+
   it("honors NestJS observation metadata through the interceptor", async () => {
     class Controller { handler() { return "ok"; } }
     const descriptor = Object.getOwnPropertyDescriptor(Controller.prototype, "handler")!; ObserveNest("nest.checkout")(Controller.prototype, "handler", descriptor);
     const context = { getHandler: () => Controller.prototype.handler, getClass: () => Controller, switchToHttp: () => ({ getRequest: () => ({ method: "POST", route: { path: "/checkout" }, url: "/checkout", headers: {} }), getResponse: () => ({ statusCode: 201 }) }) } as any;
     await lastValueFrom(new SightglassInterceptor().intercept(context, { handle: () => defer(() => { coreObserve.event("nest.completed"); return of("ok"); }) })); await shutdownSightglass();
     expect(envelopes.flatMap((item) => item.occurrences).find((item) => item.operation === "nest.checkout")?.events[0]?.name).toBe("nest.completed");
+  });
+
+  it("drains NestJS telemetry through the application shutdown lifecycle", async () => {
+    await runObserved("nest.shutdown", {}, async () => undefined);
+    await new SightglassLifecycle().onApplicationShutdown();
+    expect(envelopes.flatMap((item) => item.occurrences).some((item) => item.operation === "nest.shutdown")).toBe(true);
   });
 
   it("wraps a Next route without observing unrelated work", async () => {

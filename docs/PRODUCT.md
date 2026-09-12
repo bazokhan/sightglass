@@ -10,7 +10,7 @@ Sightglass is application observability for developers who do not want an observ
 - Usage is an idempotent, durable ledger intended for export, not a billing engine.
 - One opinionated dashboard answers known questions. There is no dashboard builder or query language.
 - One process, one port, one SQLite file, and one Docker container are the default deployment.
-- Supported runtime ecosystem: Node.js/TypeScript, Express, NestJS, tsoa-on-Express, Next.js server route handlers, Prisma, and native fetch.
+- Supported runtime ecosystem: Node.js/TypeScript, Express, Fastify, NestJS, tsoa-on-Express, Next.js server route handlers, Prisma, and native fetch.
 
 ## Public developer API
 

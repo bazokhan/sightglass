@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import type { HealthSample, IngestEnvelope, Occurrence, UsageEvent } from "@sightglass/core";
 
 type Row = Record<string, unknown>;
+type TelemetryFilters = { service?: string; environment?: string };
 
 export class Store {
   readonly database: DatabaseSync;
@@ -30,9 +31,8 @@ export class Store {
     }
   }
 
-  summary(from: string, to: string, service?: string): object {
-    const where = service ? "hour >= ? AND hour <= ? AND service = ?" : "hour >= ? AND hour <= ?";
-    const params = service ? [hour(from), hour(to), service] : [hour(from), hour(to)];
+  summary(from: string, to: string, filters: TelemetryFilters = {}): object {
+    const { where, params } = rangeWhere("hour", hour(from), hour(to), filters);
     const rows = this.database.prepare(`SELECT operation, service, SUM(call_count) calls, SUM(error_count) errors, SUM(unauthorized_count) unauthorized, SUM(duration_sum) duration_sum, SUM(db_duration_sum) db_duration_sum, GROUP_CONCAT(latencies_json, '|') latency_groups FROM hourly_aggregates WHERE ${where} GROUP BY operation, service ORDER BY calls DESC`).all(...params) as Row[];
     return rows.map((row) => {
       const latencies = String(row.latency_groups ?? "").split("|").flatMap((group) => safeNumbers(group));
@@ -40,10 +40,19 @@ export class Store {
     });
   }
 
-  occurrences(filters: { from: string; to: string; service?: string; operation?: string; status?: string; limit: number; offset: number }): object[] {
+  trend(from: string, to: string, filters: TelemetryFilters = {}): object[] {
+    const { where, params } = rangeWhere("hour", hour(from), hour(to), filters);
+    const rows = this.database.prepare(`SELECT hour, SUM(call_count) calls, SUM(error_count) errors, SUM(duration_sum) duration_sum, GROUP_CONCAT(latencies_json, '|') latency_groups FROM hourly_aggregates WHERE ${where} GROUP BY hour ORDER BY hour`).all(...params) as Row[];
+    return rows.map((row) => {
+      const latencies = String(row.latency_groups ?? "").split("|").flatMap((group) => safeNumbers(group));
+      return { hour: row.hour, calls: row.calls, errors: row.errors, errorRate: percent(Number(row.errors), Number(row.calls)), averageMs: ratio(Number(row.duration_sum), Number(row.calls)), p95: percentile(latencies, 0.95) };
+    });
+  }
+
+  occurrences(filters: { from: string; to: string; service?: string; environment?: string; operation?: string; status?: string; limit: number; offset: number }): object[] {
     const clauses = ["started_at >= ?", "started_at <= ?"];
     const params: Array<string | number> = [filters.from, filters.to];
-    for (const [column, value] of [["service", filters.service], ["operation", filters.operation], ["status", filters.status]] as const) if (value) { clauses.push(`${column} = ?`); params.push(value); }
+    for (const [column, value] of [["service", filters.service], ["environment", filters.environment], ["operation", filters.operation], ["status", filters.status]] as const) if (value) { clauses.push(`${column} = ?`); params.push(value); }
     params.push(filters.limit, filters.offset);
     return (this.database.prepare(`SELECT id, operation, started_at startedAt, duration_ms durationMs, status, service, environment, trace_id traceId, parent_id parentId, context_json context, error_json error FROM occurrences WHERE ${clauses.join(" AND ")} ORDER BY started_at DESC LIMIT ? OFFSET ?`).all(...params) as Row[]).map(hydrateListRow);
   }
@@ -60,29 +69,41 @@ export class Store {
       .map((row) => JSON.parse(String(row.payload)) as object);
   }
 
-  databaseRanking(from: string, to: string): object[] {
-    return this.database.prepare("SELECT source_operation sourceOperation, model || '.' || action operation, SUM(call_count) calls, ROUND(SUM(duration_sum), 2) totalMs, ROUND(SUM(duration_sum) / SUM(call_count), 2) averageMs, ROUND(MAX(duration_max), 2) slowestMs FROM hourly_database_aggregates WHERE hour >= ? AND hour <= ? GROUP BY source_operation, model, action ORDER BY totalMs DESC LIMIT 50").all(hour(from), hour(to)) as object[];
+  databaseRanking(from: string, to: string, filters: TelemetryFilters = {}): object[] {
+    const { where, params } = rangeWhere("hour", hour(from), hour(to), filters);
+    return this.database.prepare(`SELECT source_operation sourceOperation, model || '.' || action operation, SUM(call_count) calls, ROUND(SUM(duration_sum), 2) totalMs, ROUND(SUM(duration_sum) / SUM(call_count), 2) averageMs, ROUND(MAX(duration_max), 2) slowestMs FROM hourly_database_aggregates WHERE ${where} GROUP BY source_operation, model, action ORDER BY totalMs DESC LIMIT 50`).all(...params) as object[];
   }
 
-  dependencyRanking(from: string, to: string): object[] {
-    return this.database.prepare("SELECT source_operation sourceOperation, host, method, path, SUM(call_count) calls, SUM(error_count) errors, ROUND(SUM(duration_sum) / SUM(call_count), 2) averageMs, ROUND(MAX(duration_max), 2) slowestMs FROM hourly_dependency_aggregates WHERE hour >= ? AND hour <= ? GROUP BY source_operation, host, method, path ORDER BY calls DESC LIMIT 50").all(hour(from), hour(to)) as object[];
+  dependencyRanking(from: string, to: string, filters: TelemetryFilters = {}): object[] {
+    const { where, params } = rangeWhere("hour", hour(from), hour(to), filters);
+    return this.database.prepare(`SELECT source_operation sourceOperation, host, method, path, SUM(call_count) calls, SUM(error_count) errors, ROUND(SUM(duration_sum) / SUM(call_count), 2) averageMs, ROUND(MAX(duration_max), 2) slowestMs FROM hourly_dependency_aggregates WHERE ${where} GROUP BY source_operation, host, method, path ORDER BY calls DESC LIMIT 50`).all(...params) as object[];
   }
 
-  usage(from: string, to: string, tenantId?: string): object[] {
-    const tenant = tenantId ? "AND tenant_id = ?" : "";
-    const params = tenantId ? [hour(from), hour(to), tenantId] : [hour(from), hour(to)];
-    return this.database.prepare(`SELECT meter, NULLIF(unit, '') unit, service, NULLIF(tenant_id, '') tenantId, SUM(quantity_sum) quantity, SUM(event_count) events FROM hourly_meter_aggregates WHERE hour >= ? AND hour <= ? ${tenant} GROUP BY meter, unit, service, tenant_id ORDER BY quantity DESC`).all(...params) as object[];
+  usage(from: string, to: string, filters: TelemetryFilters & { tenantId?: string } = {}): object[] {
+    const { where, params } = rangeWhere("hour", hour(from), hour(to), filters);
+    const tenant = filters.tenantId ? " AND tenant_id = ?" : "";
+    if (filters.tenantId) params.push(filters.tenantId);
+    return this.database.prepare(`SELECT meter, NULLIF(unit, '') unit, service, NULLIF(tenant_id, '') tenantId, SUM(quantity_sum) quantity, SUM(event_count) events FROM hourly_meter_aggregates WHERE ${where}${tenant} GROUP BY meter, unit, service, tenant_id ORDER BY quantity DESC`).all(...params) as object[];
   }
 
-  usageRows(from: string, to: string): Row[] {
-    return this.database.prepare("SELECT id, timestamp, service, environment, tenant_id tenantId, meter, unit, quantity, occurrence_id occurrenceId, attributes_json attributes FROM meters WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp").all(from, to) as Row[];
+  usageTrend(from: string, to: string, filters: TelemetryFilters = {}): object[] {
+    const { where, params } = rangeWhere("hour", hour(from), hour(to), filters);
+    return this.database.prepare(`SELECT hour, meter, NULLIF(unit, '') unit, SUM(quantity_sum) quantity, SUM(event_count) events FROM hourly_meter_aggregates WHERE ${where} GROUP BY hour, meter, unit ORDER BY hour, meter`).all(...params) as object[];
   }
 
-  health(from: string, to: string): object[] {
-    return this.database.prepare("SELECT service, environment, timestamp, cpu_percent cpuPercent, memory_rss_bytes memoryRssBytes, heap_used_bytes memoryHeapUsedBytes, event_loop_lag_ms eventLoopLagMs, uptime_seconds uptimeSeconds, pid, host_memory_total_bytes hostMemoryTotalBytes, host_memory_free_bytes hostMemoryFreeBytes, host_load_1m hostLoad1m, disk_total_bytes diskTotalBytes, disk_free_bytes diskFreeBytes, restart_detected restartDetected, SUM(restart_detected) OVER (PARTITION BY service, environment ORDER BY timestamp) restartCount FROM health_samples WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp").all(from, to) as object[];
+  usageRows(from: string, to: string, filters: TelemetryFilters = {}): Row[] {
+    const { where, params } = rangeWhere("timestamp", from, to, filters);
+    return this.database.prepare(`SELECT id, timestamp, service, environment, tenant_id tenantId, meter, unit, quantity, occurrence_id occurrenceId, attributes_json attributes FROM meters WHERE ${where} ORDER BY timestamp`).all(...params) as Row[];
   }
 
-  services(): object[] { return this.database.prepare("SELECT service, MAX(started_at) lastSeen FROM occurrences GROUP BY service ORDER BY service").all() as object[]; }
+  health(from: string, to: string, filters: TelemetryFilters = {}): object[] {
+    const { where, params } = rangeWhere("timestamp", from, to, filters);
+    return this.database.prepare(`SELECT service, environment, timestamp, cpu_percent cpuPercent, memory_rss_bytes memoryRssBytes, heap_used_bytes memoryHeapUsedBytes, event_loop_lag_ms eventLoopLagMs, uptime_seconds uptimeSeconds, pid, host_memory_total_bytes hostMemoryTotalBytes, host_memory_free_bytes hostMemoryFreeBytes, host_load_1m hostLoad1m, disk_total_bytes diskTotalBytes, disk_free_bytes diskFreeBytes, restart_detected restartDetected, SUM(restart_detected) OVER (PARTITION BY service, environment ORDER BY timestamp) restartCount FROM health_samples WHERE ${where} ORDER BY timestamp`).all(...params) as object[];
+  }
+
+  services(): object[] {
+    return this.database.prepare("SELECT service, environment, MAX(lastSeen) lastSeen FROM (SELECT service, environment, started_at lastSeen FROM occurrences UNION ALL SELECT service, environment, timestamp lastSeen FROM meters UNION ALL SELECT service, environment, timestamp lastSeen FROM health_samples) GROUP BY service, environment ORDER BY service, environment").all() as object[];
+  }
 
   cleanup(successDays: number, errorDays: number, aggregateDays: number): void {
     const cutoff = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
@@ -208,6 +229,13 @@ export class Store {
 }
 
 function safeNumbers(json: string): number[] { try { const value = JSON.parse(json); return Array.isArray(value) ? value.filter((item): item is number => typeof item === "number") : []; } catch { return []; } }
+function rangeWhere(column: string, from: string, to: string, filters: TelemetryFilters): { where: string; params: Array<string | number> } {
+  const clauses = [`${column} >= ?`, `${column} <= ?`];
+  const params: Array<string | number> = [from, to];
+  if (filters.service) { clauses.push("service = ?"); params.push(filters.service); }
+  if (filters.environment) { clauses.push("environment = ?"); params.push(filters.environment); }
+  return { where: clauses.join(" AND "), params };
+}
 function hour(value: string): string { return `${value.slice(0, 13)}:00:00.000Z`; }
 function ratio(top: number, bottom: number): number { return bottom ? Math.round((top / bottom) * 100) / 100 : 0; }
 function percent(top: number, bottom: number): number { return Math.round(ratio(top, bottom) * 10_000) / 100; }

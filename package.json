@@ -10,7 +10,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build -w @sightglass/core && npm run build -w @sightglass/express && npm run build -w @sightglass/nest && npm run build -w @sightglass/next && npm run build -w @sightglass/prisma && npm run build -w @sightglass/dashboard && npm run build -w @sightglass/server",
+    "build": "npm run build -w @sightglass/core && npm run build -w @sightglass/express && npm run build -w @sightglass/fastify && npm run build -w @sightglass/nest && npm run build -w @sightglass/next && npm run build -w @sightglass/prisma && npm run build -w @sightglass/dashboard && npm run build -w @sightglass/server",
     "dev": "npm run dev -w @sightglass/server",
     "pretest": "npm run build -w @sightglass/core",
     "test": "vitest run",
@@ -18,6 +18,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "benchmark": "npm run build -w @sightglass/server && tsx scripts/benchmark-suite.ts",
+    "verify:recovery": "tsx scripts/verify-backup-restore.ts",
+    "verify": "npm test && npm run typecheck && npm run lint && npm run build && npm run pack:sdk && npm run verify:recovery",
     "pack:sdk": "node scripts/pack-sdk.mjs",
     "start": "npm run start -w @sightglass/server"
   },

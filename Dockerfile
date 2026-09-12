@@ -6,6 +6,7 @@ COPY apps/dashboard/package.json ./apps/dashboard/package.json
 COPY apps/example/package.json ./apps/example/package.json
 COPY packages/core/package.json ./packages/core/package.json
 COPY packages/express/package.json ./packages/express/package.json
+COPY packages/fastify/package.json ./packages/fastify/package.json
 COPY packages/nest/package.json ./packages/nest/package.json
 COPY packages/next/package.json ./packages/next/package.json
 COPY packages/prisma/package.json ./packages/prisma/package.json
@@ -23,6 +24,7 @@ COPY apps/dashboard/package.json ./apps/dashboard/package.json
 COPY apps/example/package.json ./apps/example/package.json
 COPY packages/core/package.json ./packages/core/package.json
 COPY packages/express/package.json ./packages/express/package.json
+COPY packages/fastify/package.json ./packages/fastify/package.json
 COPY packages/nest/package.json ./packages/nest/package.json
 COPY packages/next/package.json ./packages/next/package.json
 COPY packages/prisma/package.json ./packages/prisma/package.json

@@ -1,5 +1,5 @@
 import express from "express";
-import { configureSightglass, observe as sightglass } from "@sightglass/core";
+import { configureSightglass, observe as sightglass, shutdownSightglass } from "@sightglass/core";
 import { observe } from "@sightglass/express";
 
 configureSightglass({ service: "example-shop", endpoint: process.env.SIGHTGLASS_ENDPOINT ?? "http://localhost:7777", meters: { "orders.created": { unit: "order" } } });
@@ -16,4 +16,7 @@ app.post("/checkout", observe("checkout"), async (request, response) => {
 });
 
 app.get("/health", (_request, response) => response.json({ ok: true }));
-app.listen(3000, () => console.log("Example shop listening on http://localhost:3000"));
+const server = app.listen(3000, () => console.log("Example shop listening on http://localhost:3000"));
+const stop = () => server.close(() => { void shutdownSightglass().finally(() => process.exit(0)); });
+process.once("SIGINT", stop);
+process.once("SIGTERM", stop);

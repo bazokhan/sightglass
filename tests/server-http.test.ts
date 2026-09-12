@@ -27,6 +27,8 @@ describe("HTTP server", () => {
     expect(accepted.status).toBe(202); expect(await accepted.json()).toEqual({ accepted: { occurrences: 0, meters: 0, health: 0 } });
     const invalid = await fetch(`${origin}/api/v1/ingest`, { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer test-key" }, body: JSON.stringify({ protocol: 9, occurrences: [], meters: [], health: [] }) });
     expect(invalid.status).toBe(400); expect(Array.isArray(await (await fetch(`${origin}/api/v1/summary`)).json())).toBe(true);
+    expect(Array.isArray(await (await fetch(`${origin}/api/v1/trend?service=missing&environment=test`)).json())).toBe(true);
+    expect(Array.isArray(await (await fetch(`${origin}/api/v1/usage/trend?service=missing`)).json())).toBe(true);
   });
 });
 

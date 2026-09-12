@@ -26,7 +26,10 @@ let healthHistogram: ReturnType<typeof monitorEventLoopDelay> | undefined;
 export function configureSightglass(config: SightglassConfig): void {
   if (!config.service.trim()) throw new TypeError("Sightglass service is required");
   if (!config.endpoint.trim()) throw new TypeError("Sightglass endpoint is required");
-  if (transport) void transport.close();
+  const previousTransport = transport;
+  transport = undefined;
+  settings = undefined;
+  if (previousTransport) void previousTransport.close();
   settings = { ...config, environment: config.environment ?? process.env.NODE_ENV ?? "development" };
   transport = new Transport({
     ...settings,
@@ -46,10 +49,15 @@ export function configureSightglass(config: SightglassConfig): void {
 }
 
 export async function shutdownSightglass(): Promise<void> {
+  const currentTransport = transport;
+  transport = undefined;
+  settings = undefined;
   if (healthTimer) clearInterval(healthTimer);
+  healthTimer = undefined;
   healthHistogram?.disable();
-  await transport?.close();
+  healthHistogram = undefined;
   restoreFetch();
+  await currentTransport?.close();
 }
 
 export async function runObserved<T>(name: string, options: OperationOptions, fn: () => T | Promise<T>): Promise<T> {

@@ -9,6 +9,9 @@ data/
 .DS_Store
 coverage/
 .npm-cache/
+.npm-cache-verify/
 package-smoke-temp/
+consumer-smoke/
+.codex-remote-attachments/
 .sightglass-spool/
 .benchmark-output/

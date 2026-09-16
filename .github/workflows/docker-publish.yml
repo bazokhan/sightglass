@@ -25,7 +25,9 @@ jobs:
         shell: bash
         env:
           VERSION: ${{ inputs.version }}
-        run: test "$(node -p \"require('./packages/core/package.json').version\")" = "$VERSION"
+        run: |
+          ACTUAL_VERSION=$(node -p "require('./packages/core/package.json').version")
+          test "$ACTUAL_VERSION" = "$VERSION"
       - uses: docker/login-action@v4
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}

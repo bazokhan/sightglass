@@ -165,6 +165,26 @@ export class Store {
     this.database.exec("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
     this.applyMigration(1, () => this.createBaseSchema());
     this.applyMigration(2, () => this.createAggregateSchema());
+    this.applyMigration(3, () => this.createOperationsSchema());
+  }
+
+  private createOperationsSchema(): void {
+    this.database.exec(`
+      CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE COLLATE NOCASE, password_hash TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('admin','user')), status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','disabled')), must_change_password INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, token_hash TEXT NOT NULL UNIQUE, csrf_token TEXT NOT NULL, created_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, expires_at TEXT NOT NULL);
+      CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token_hash);
+      CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+      CREATE TABLE IF NOT EXISTS auth_tokens (id TEXT PRIMARY KEY, user_id TEXT REFERENCES users(id) ON DELETE CASCADE, email TEXT, role TEXT, kind TEXT NOT NULL CHECK(kind IN ('setup','invite','reset')), token_hash TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, used_at TEXT);
+      CREATE INDEX IF NOT EXISTS idx_auth_tokens_hash ON auth_tokens(token_hash);
+      CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value_json TEXT NOT NULL, secret_cipher TEXT, updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS ingestion_keys (id TEXT PRIMARY KEY, name TEXT NOT NULL, key_prefix TEXT NOT NULL, key_hash TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL, last_used_at TEXT, revoked_at TEXT);
+      CREATE INDEX IF NOT EXISTS idx_ingestion_keys_hash ON ingestion_keys(key_hash);
+      CREATE TABLE IF NOT EXISTS audit_log (id TEXT PRIMARY KEY, user_id TEXT REFERENCES users(id) ON DELETE SET NULL, event TEXT NOT NULL, ip TEXT, details_json TEXT NOT NULL, created_at TEXT NOT NULL);
+      CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
+      CREATE TABLE IF NOT EXISTS alert_state (key TEXT PRIMARY KEY, active INTEGER NOT NULL DEFAULT 0, last_sent_at TEXT, updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS backup_runs (id TEXT PRIMARY KEY, filename TEXT NOT NULL, status TEXT NOT NULL, size_bytes INTEGER, error TEXT, created_at TEXT NOT NULL, completed_at TEXT);
+      CREATE INDEX IF NOT EXISTS idx_backup_created ON backup_runs(created_at DESC);
+    `);
   }
 
   schemaVersion(): number {

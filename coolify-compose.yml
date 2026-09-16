@@ -1,0 +1,32 @@
+# documentation: https://sightglass-docs.vercel.app/docs
+# slogan: Application observability without an observability stack
+# category: monitoring
+# tags: observability,monitoring,nodejs,sqlite
+# port: 7777
+services:
+  sightglass:
+    image: bazokhan/sightglass:${SIGHTGLASS_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      SERVICE_URL_SIGHTGLASS_7777: /
+      SIGHTGLASS_PUBLIC_URL: ${SERVICE_URL_SIGHTGLASS_7777}
+      SIGHTGLASS_SECRET: ${SERVICE_REALBASE64_64_SIGHTGLASS}
+      SIGHTGLASS_TRUST_PROXY: "true"
+      SIGHTGLASS_DATABASE_PATH: /data/sightglass.db
+      SIGHTGLASS_DASHBOARD_PATH: /app/apps/dashboard/dist
+    volumes:
+      - sightglass-data:/data
+    expose:
+      - "7777"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:7777/readyz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+volumes:
+  sightglass-data:

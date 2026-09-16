@@ -38,6 +38,8 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
+          build-args: |
+            SIGHTGLASS_VERSION=${{ inputs.version }}
           tags: |
             bazokhan/sightglass:${{ inputs.version }}
             bazokhan/sightglass:latest

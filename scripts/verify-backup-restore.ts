@@ -19,7 +19,7 @@ try {
 
   copyFileSync(backupPath, restoredPath);
   const restored = new Store(restoredPath);
-  assert(restored.schemaVersion() === 2, "schema migrations");
+  assert(restored.schemaVersion() === 3, "schema migrations");
   assert((restored.summary("2026-08-15T00:00:00.000Z", "2026-08-16T00:00:00.000Z") as unknown[]).length === 1, "operation aggregates");
   assert(restored.occurrence("recovery-occurrence") !== undefined, "raw occurrence and trace payload");
   assert((restored.databaseRanking("2026-08-15T00:00:00.000Z", "2026-08-16T00:00:00.000Z") as unknown[]).length === 1, "database aggregates");

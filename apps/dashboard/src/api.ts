@@ -7,10 +7,43 @@ export type UsageTrend = { hour: string; meter: string; unit: string | null; qua
 export type ServiceOption = { service: string; environment: string; lastSeen: string };
 export type Health = { service: string; environment: string; timestamp: string; cpuPercent: number; memoryRssBytes: number; memoryHeapUsedBytes: number; eventLoopLagMs: number; uptimeSeconds: number; pid: number; hostMemoryTotalBytes?: number; hostMemoryFreeBytes?: number; hostLoad1m?: number; diskTotalBytes?: number; diskFreeBytes?: number; restartDetected?: number; restartCount?: number };
 
-const get = async <T,>(path: string): Promise<T> => {
-  const response = await fetch(path);
-  if (!response.ok) throw new Error(`Sightglass API returned ${response.status}`);
-  return response.json() as Promise<T>;
+export type User = { id: string; email: string; role: "admin" | "user"; mustChangePassword: boolean };
+export class ApiError extends Error { constructor(readonly status: number, message: string) { super(message); } }
+let csrfToken = "";
+export const setCsrfToken = (value: string) => { csrfToken = value; };
+export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers = new Headers(options.headers); if (options.body && !headers.has("content-type")) headers.set("content-type", "application/json"); if (csrfToken && options.method && options.method !== "GET") headers.set("x-csrf-token", csrfToken);
+  const response = await fetch(path, { ...options, headers });
+  if (!response.ok) { const body = await response.json().catch(() => undefined) as { error?: { message?: string } } | undefined; if (response.status === 401 && path !== "/api/v1/auth/me" && !path.endsWith("/login")) window.location.reload(); throw new ApiError(response.status, body?.error?.message ?? `Sightglass API returned ${response.status}`); }
+  if (response.status === 204) return undefined as T; return response.json() as Promise<T>;
+}
+const get = <T,>(path: string) => request<T>(path);
+
+export const authApi = {
+  me: () => request<{ user: User; csrfToken: string }>("/api/v1/auth/me"),
+  setupStatus: () => request<{ required: boolean }>("/api/v1/auth/setup-status"),
+  login: (email: string, password: string) => request<{ user: User; csrfToken: string }>("/api/v1/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+  setup: (token: string, email: string, password: string) => request<{ user: User; csrfToken: string }>("/api/v1/auth/setup", { method: "POST", body: JSON.stringify({ token, email, password }) }),
+  acceptInvite: (token: string, password: string) => request<void>("/api/v1/auth/invitations/accept", { method: "POST", body: JSON.stringify({ token, password }) }),
+  reset: (token: string, password: string) => request<void>("/api/v1/auth/password/reset", { method: "POST", body: JSON.stringify({ token, password }) }),
+  forgot: (email: string) => request<void>("/api/v1/auth/password/forgot", { method: "POST", body: JSON.stringify({ email }) }),
+  changePassword: (currentPassword: string, password: string) => request<void>("/api/v1/auth/password/change", { method: "POST", body: JSON.stringify({ currentPassword, password }) }),
+  logout: () => request<void>("/api/v1/auth/logout", { method: "POST" }),
+};
+
+export const adminApi = {
+  overview: () => request<any>("/api/v1/admin/overview"),
+  createUser: (email: string, role: string) => request<any>("/api/v1/admin/users", { method: "POST", body: JSON.stringify({ email, role }) }),
+  updateUser: (id: string, changes: object) => request<void>(`/api/v1/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(changes) }),
+  invite: (email: string, role: string) => request<any>("/api/v1/admin/invitations", { method: "POST", body: JSON.stringify({ email, role }) }),
+  createKey: (name: string) => request<any>("/api/v1/admin/ingestion-keys", { method: "POST", body: JSON.stringify({ name }) }),
+  revokeKey: (id: string) => request<void>(`/api/v1/admin/ingestion-keys/${id}`, { method: "DELETE" }),
+  saveSmtp: (value: object) => request<any>("/api/v1/admin/settings/smtp", { method: "PUT", body: JSON.stringify(value) }),
+  testSmtp: () => request<void>("/api/v1/admin/settings/smtp/test", { method: "POST" }),
+  saveAlerts: (value: object) => request<any>("/api/v1/admin/settings/alerts", { method: "PUT", body: JSON.stringify(value) }),
+  saveBackups: (value: object) => request<any>("/api/v1/admin/settings/backups", { method: "PUT", body: JSON.stringify(value) }),
+  backupNow: () => request<any>("/api/v1/admin/backups", { method: "POST" }),
+  checkUpdate: () => request<any>("/api/v1/admin/update/check", { method: "POST" }),
 };
 
 export function loadDashboard(hours: number, filters: { service: string; environment: string }) {

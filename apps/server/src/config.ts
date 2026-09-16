@@ -16,6 +16,12 @@ export const config = Object.freeze({
     ? resolve(process.env.SIGHTGLASS_DASHBOARD_PATH)
     : fileURLToPath(new URL("../../dashboard/dist", import.meta.url)),
   apiKey: process.env.SIGHTGLASS_API_KEY,
+  publicUrl: process.env.SIGHTGLASS_PUBLIC_URL,
+  installationSecret: process.env.SIGHTGLASS_SECRET,
+  trustProxy: process.env.SIGHTGLASS_TRUST_PROXY === "true",
+  secureCookies: process.env.NODE_ENV === "production" && process.env.SIGHTGLASS_INSECURE_HTTP !== "true",
+  updateChecks: process.env.SIGHTGLASS_UPDATE_CHECKS !== "false",
+  version: process.env.SIGHTGLASS_VERSION ?? "0.1.0",
   successRetentionDays: positiveInteger("SIGHTGLASS_SUCCESS_RETENTION_DAYS", 7),
   errorRetentionDays: positiveInteger("SIGHTGLASS_ERROR_RETENTION_DAYS", 30),
   aggregateRetentionDays: positiveInteger("SIGHTGLASS_AGGREGATE_RETENTION_DAYS", 365),

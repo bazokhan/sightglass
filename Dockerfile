@@ -16,7 +16,8 @@ COPY packages ./packages
 RUN npm run build
 
 FROM node:24-alpine AS runtime
-ENV NODE_ENV=production SIGHTGLASS_DATABASE_PATH=/data/sightglass.db SIGHTGLASS_DASHBOARD_PATH=/app/apps/dashboard/dist
+ARG SIGHTGLASS_VERSION=0.1.0
+ENV NODE_ENV=production SIGHTGLASS_DATABASE_PATH=/data/sightglass.db SIGHTGLASS_DASHBOARD_PATH=/app/apps/dashboard/dist SIGHTGLASS_VERSION=$SIGHTGLASS_VERSION
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/server/package.json ./apps/server/package.json
@@ -32,6 +33,10 @@ RUN npm ci --omit=dev --ignore-scripts
 COPY --from=build /app/apps/server/dist ./apps/server/dist
 COPY --from=build /app/apps/dashboard/dist ./apps/dashboard/dist
 COPY --from=build /app/packages/core/dist ./packages/core/dist
+RUN mkdir -p /data/backups && chown -R node:node /data
 EXPOSE 7777
 VOLUME ["/data"]
+USER node
+LABEL org.opencontainers.image.source="https://github.com/bazokhan/sightglass" org.opencontainers.image.version=$SIGHTGLASS_VERSION
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 CMD ["node", "-e", "fetch('http://127.0.0.1:7777/readyz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
 CMD ["node", "apps/server/dist/index.js"]

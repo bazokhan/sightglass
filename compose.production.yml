@@ -1,13 +1,12 @@
 services:
   sightglass:
-    image: ${SIGHTGLASS_IMAGE:-bazokhan/sightglass:latest}
-    build: .
+    image: bazokhan/sightglass:${SIGHTGLASS_VERSION:-latest}
     ports:
       - "7777:7777"
     environment:
-      SIGHTGLASS_PUBLIC_URL: ${SIGHTGLASS_PUBLIC_URL:-http://localhost:7777}
-      SIGHTGLASS_SECRET: ${SIGHTGLASS_SECRET:-}
-      SIGHTGLASS_INSECURE_HTTP: ${SIGHTGLASS_INSECURE_HTTP:-true}
+      SIGHTGLASS_PUBLIC_URL: ${SIGHTGLASS_PUBLIC_URL:?Set the public HTTPS URL}
+      SIGHTGLASS_SECRET: ${SIGHTGLASS_SECRET:?Set a stable random installation secret}
+      SIGHTGLASS_TRUST_PROXY: ${SIGHTGLASS_TRUST_PROXY:-true}
       SIGHTGLASS_DATABASE_PATH: /data/sightglass.db
     volumes:
       - sightglass-data:/data

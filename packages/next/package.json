@@ -1,19 +1,46 @@
 {
   "name": "@bazokhan/sightglass-next",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Explicit Sightglass observability for Next.js route handlers.",
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/bazokhan/sightglass.git", "directory": "packages/next" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bazokhan/sightglass.git",
+    "directory": "packages/next"
+  },
   "homepage": "https://github.com/bazokhan/sightglass#readme",
-  "bugs": { "url": "https://github.com/bazokhan/sightglass/issues" },
-  "keywords": ["observability", "nextjs", "typescript"],
+  "bugs": {
+    "url": "https://github.com/bazokhan/sightglass/issues"
+  },
+  "keywords": [
+    "observability",
+    "nextjs",
+    "typescript"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
-  "files": ["dist"],
-  "engines": { "node": ">=22.13" },
-  "publishConfig": { "access": "public", "provenance": true },
-  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit" },
-  "dependencies": { "@bazokhan/sightglass-core": "0.1.0" }
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@bazokhan/sightglass-core": "0.1.1"
+  }
 }

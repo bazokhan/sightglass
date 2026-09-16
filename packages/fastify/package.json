@@ -1,21 +1,52 @@
 {
   "name": "@bazokhan/sightglass-fastify",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Explicit Sightglass observability for Fastify applications.",
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/bazokhan/sightglass.git", "directory": "packages/fastify" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bazokhan/sightglass.git",
+    "directory": "packages/fastify"
+  },
   "homepage": "https://github.com/bazokhan/sightglass#readme",
-  "bugs": { "url": "https://github.com/bazokhan/sightglass/issues" },
-  "keywords": ["observability", "fastify", "typescript"],
+  "bugs": {
+    "url": "https://github.com/bazokhan/sightglass/issues"
+  },
+  "keywords": [
+    "observability",
+    "fastify",
+    "typescript"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
-  "files": ["dist"],
-  "engines": { "node": ">=22.13" },
-  "publishConfig": { "access": "public", "provenance": true },
-  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit" },
-  "dependencies": { "@bazokhan/sightglass-core": "0.1.0" },
-  "peerDependencies": { "fastify": ">=5.0" },
-  "devDependencies": { "fastify": "^5.6.0" }
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@bazokhan/sightglass-core": "0.1.1"
+  },
+  "peerDependencies": {
+    "fastify": ">=5.0"
+  },
+  "devDependencies": {
+    "fastify": "^5.6.0"
+  }
 }

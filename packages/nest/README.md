@@ -9,4 +9,4 @@ import { Observe } from "@bazokhan/sightglass-nest";
 createInvoice() {}
 ```
 
-See the [NestJS guide](https://sightglass-observability-without-noise.vercel.app/docs/frameworks#nestjs).
+See the [NestJS guide](https://sightglass-docs.trugraph.io/docs/frameworks#nestjs).

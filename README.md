@@ -4,10 +4,10 @@
 
 Sightglass records only explicitly observed Node.js operations, with bounded business context, events, steps, database work, outbound dependencies, errors, distributed correlation, runtime health, and durable exact usage meters.
 
-- Documentation and quickstart: [Sightglass documentation](https://sightglass-docs.vercel.app)
+- Documentation and quickstart: [Sightglass documentation](https://sightglass-docs.trugraph.io)
 - Public documentation source: [bazokhan/sightglass-docs](https://github.com/bazokhan/sightglass-docs)
 - Docker image: [`bazokhan/sightglass`](https://hub.docker.com/r/bazokhan/sightglass)
-- SDKs: `@bazokhan/sightglass-core`, `@bazokhan/sightglass-express`, `@bazokhan/sightglass-fastify`, `@bazokhan/sightglass-nest`, `@bazokhan/sightglass-next`, and `@bazokhan/sightglass-prisma`
+- SDKs: [`@bazokhan/sightglass-core`](https://www.npmjs.com/package/@bazokhan/sightglass-core), [`@bazokhan/sightglass-express`](https://www.npmjs.com/package/@bazokhan/sightglass-express), [`@bazokhan/sightglass-fastify`](https://www.npmjs.com/package/@bazokhan/sightglass-fastify), [`@bazokhan/sightglass-nest`](https://www.npmjs.com/package/@bazokhan/sightglass-nest), [`@bazokhan/sightglass-next`](https://www.npmjs.com/package/@bazokhan/sightglass-next), and [`@bazokhan/sightglass-prisma`](https://www.npmjs.com/package/@bazokhan/sightglass-prisma)
 
 ## Development
 

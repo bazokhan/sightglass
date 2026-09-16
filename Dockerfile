@@ -37,6 +37,12 @@ RUN mkdir -p /data/backups && chown -R node:node /data
 EXPOSE 7777
 VOLUME ["/data"]
 USER node
-LABEL org.opencontainers.image.source="https://github.com/bazokhan/sightglass" org.opencontainers.image.version=$SIGHTGLASS_VERSION
+LABEL org.opencontainers.image.title="Sightglass" \
+      org.opencontainers.image.description="Application observability for developers who do not want an observability stack." \
+      org.opencontainers.image.url="https://sightglass-docs.trugraph.io" \
+      org.opencontainers.image.documentation="https://sightglass-docs.trugraph.io/docs" \
+      org.opencontainers.image.source="https://github.com/bazokhan/sightglass" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version=$SIGHTGLASS_VERSION
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 CMD ["node", "-e", "fetch('http://127.0.0.1:7777/readyz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
 CMD ["node", "apps/server/dist/index.js"]

@@ -18,4 +18,4 @@ export const charge = observe("billing.charge", async (invoiceId: string) => {
 });
 ```
 
-Sightglass records only code paths you opt into. See the [quickstart](https://sightglass-observability-without-noise.vercel.app/docs/quickstart) and [API reference](https://sightglass-observability-without-noise.vercel.app/docs/api).
+Sightglass records only code paths you opt into. See the [quickstart](https://sightglass-docs.trugraph.io/docs/quickstart) and [API reference](https://sightglass-docs.trugraph.io/docs/api).

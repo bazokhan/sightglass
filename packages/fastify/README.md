@@ -9,4 +9,4 @@ await app.register(sightglass, config);
 app.post("/invoices", { handler: observe("invoices.create", createInvoice) });
 ```
 
-See the [Fastify guide](https://sightglass-observability-without-noise.vercel.app/docs/frameworks#fastify).
+See the [Fastify guide](https://sightglass-docs.trugraph.io/docs/frameworks#fastify).

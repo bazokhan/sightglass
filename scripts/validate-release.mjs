@@ -13,6 +13,7 @@ for (const { name, value } of manifests) {
   if (value.private) throw new Error(`${value.name} is private`);
   if (value.publishConfig?.access !== "public") throw new Error(`${value.name} is not configured for public publishing`);
   if (value.repository?.url !== "git+https://github.com/bazokhan/sightglass.git") throw new Error(`${value.name} has an incorrect repository URL`);
+  if (value.homepage !== "https://sightglass-docs.trugraph.io/docs") throw new Error(`${value.name} has an incorrect documentation URL`);
   if (!existsSync(resolve("packages", name, "dist", "index.js")) || !existsSync(resolve("packages", name, "dist", "index.d.ts"))) {
     throw new Error(`${value.name} has not been built`);
   }

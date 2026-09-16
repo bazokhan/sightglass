@@ -8,7 +8,7 @@
     "url": "git+https://github.com/bazokhan/sightglass.git",
     "directory": "packages/next"
   },
-  "homepage": "https://github.com/bazokhan/sightglass#readme",
+  "homepage": "https://sightglass-docs.trugraph.io/docs",
   "bugs": {
     "url": "https://github.com/bazokhan/sightglass/issues"
   },

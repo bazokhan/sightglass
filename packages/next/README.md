@@ -10,4 +10,4 @@ export const POST = observe("invoices.create", async (request) => {
 });
 ```
 
-See the [Next.js guide](https://sightglass-observability-without-noise.vercel.app/docs/frameworks#nextjs).
+See the [Next.js guide](https://sightglass-docs.trugraph.io/docs/frameworks#nextjs).

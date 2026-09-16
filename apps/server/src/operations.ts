@@ -9,6 +9,7 @@ import { now, Security } from "./security.js";
 import { randomUUID } from "node:crypto";
 
 type Row = Record<string, unknown>;
+type GitHubRelease = { tag_name?: string; html_url?: string };
 export type SmtpSettings = { enabled: boolean; host: string; port: number; secure: boolean; username: string; from: string };
 export type SmtpSecret = { password: string };
 export type BackupSettings = { enabled: boolean; localRetention: number; s3Enabled: boolean; endpoint: string; region: string; bucket: string; prefix: string; forcePathStyle: boolean; remoteRetention: number };
@@ -86,9 +87,10 @@ export class Operations {
     if (!config.updateChecks) return { current: config.version, disabled: true };
     if (!force && this.latestRelease?.checkedAt && Date.now() - new Date(this.latestRelease.checkedAt).valueOf() < 86_400_000) return this.latestRelease;
     try {
-      const response = await fetch("https://api.github.com/repos/bazokhan/sightglass/releases/latest", { headers: { accept: "application/vnd.github+json", "user-agent": `sightglass/${config.version}` }, signal: AbortSignal.timeout(8_000) });
-      if (!response.ok) throw new Error(`GitHub returned ${response.status}`); const value = await response.json() as { tag_name?: string; html_url?: string };
-      this.latestRelease = { current: config.version, ...(value.tag_name ? { latest: value.tag_name.replace(/^v/, "") } : {}), ...(value.html_url ? { url: value.html_url } : {}), checkedAt: now() };
+      const response = await fetch("https://api.github.com/repos/bazokhan/sightglass/releases?per_page=20", { headers: { accept: "application/vnd.github+json", "user-agent": `sightglass/${config.version}` }, signal: AbortSignal.timeout(8_000) });
+      if (!response.ok) throw new Error(`GitHub returned ${response.status}`);
+      const release = findProductRelease(await response.json() as GitHubRelease[]);
+      this.latestRelease = { current: config.version, ...(release?.version ? { latest: release.version } : {}), ...(release?.url ? { url: release.url } : {}), checkedAt: now() };
     } catch (error) { this.latestRelease = { current: config.version, checkedAt: now(), error: message(error) }; }
     return this.latestRelease;
   }
@@ -112,6 +114,12 @@ export class Operations {
 }
 
 export function verifyBackup(path: string): void { const database = new DatabaseSync(path, { readOnly: true }); try { const result = database.prepare("PRAGMA integrity_check").get() as Row; if (String(Object.values(result)[0]) !== "ok") throw new Error("SQLite integrity check failed"); if (!database.prepare("SELECT 1 FROM schema_migrations LIMIT 1").get()) throw new Error("Not a Sightglass backup"); } finally { database.close(); } }
+
+export function findProductRelease(releases: GitHubRelease[]): { version: string; url?: string } | undefined {
+  const value = releases.find((release) => release.tag_name?.startsWith("@bazokhan/sightglass-core@")) ?? releases.find((release) => /^v?\d+\.\d+\.\d+/.test(release.tag_name ?? ""));
+  const version = value?.tag_name?.match(/(?:@|^v?)(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/)?.[1];
+  return version ? { version, ...(value?.html_url ? { url: value.html_url } : {}) } : undefined;
+}
 function pruneLocal(directory: string, retention: number): void { const files = readdirSync(directory).filter((name) => name.endsWith(".sqlite")).map((name) => ({ name, time: statSync(join(directory, name)).mtimeMs })).sort((a, b) => b.time - a.time); for (const file of files.slice(Math.max(1, retention))) unlinkSync(join(directory, file.name)); }
 function message(error: unknown): string { return error instanceof Error ? error.message : "Unknown error"; }
 export function latestBackupPath(databasePath: string): string | undefined { const directory = join(dirname(databasePath), "backups"); if (!existsSync(directory)) return; const name = readdirSync(directory).filter((item) => item.endsWith(".sqlite")).sort().at(-1); return name ? join(directory, name) : undefined; }

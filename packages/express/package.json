@@ -1,6 +1,6 @@
 {
   "name": "@bazokhan/sightglass-express",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Explicit Sightglass observability for Express and tsoa applications.",
   "license": "MIT",
   "repository": {
@@ -42,7 +42,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@bazokhan/sightglass-core": "0.1.1"
+    "@bazokhan/sightglass-core": "0.1.2"
   },
   "peerDependencies": {
     "express": ">=4.18"

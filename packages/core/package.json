@@ -1,6 +1,6 @@
 {
   "name": "@bazokhan/sightglass-core",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Opt-in application observability primitives for Node.js and TypeScript.",
   "license": "MIT",
   "author": "Sightglass contributors",

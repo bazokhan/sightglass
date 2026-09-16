@@ -45,15 +45,16 @@ jobs:
           publish: npm run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Read published version
+      - name: Read release version
         id: version
-        if: steps.changesets.outputs.published == 'true'
         shell: bash
-        run: echo "version=$(node -p \"require('./packages/core/package.json').version\")" >> "$GITHUB_OUTPUT"
+        run: |
+          VERSION=$(node -p "require('./packages/core/package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
   docker:
     needs: release
-    if: needs.release.outputs.published == 'true'
+    if: needs.release.result == 'success'
     uses: ./.github/workflows/docker-publish.yml
     with:
       version: ${{ needs.release.outputs.version }}

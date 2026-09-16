@@ -1,5 +1,11 @@
 # @bazokhan/sightglass-core
 
+## 0.1.3
+
+### Patch Changes
+
+- bb754af: Point package homepages and README guides at the canonical Sightglass documentation domain.
+
 ## 0.1.2
 
 ### Patch Changes

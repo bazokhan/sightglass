@@ -1,5 +1,13 @@
 # @bazokhan/sightglass-prisma
 
+## 0.1.3
+
+### Patch Changes
+
+- bb754af: Point package homepages and README guides at the canonical Sightglass documentation domain.
+- Updated dependencies [bb754af]
+  - @bazokhan/sightglass-core@0.1.3
+
 ## 0.1.2
 
 ### Patch Changes
